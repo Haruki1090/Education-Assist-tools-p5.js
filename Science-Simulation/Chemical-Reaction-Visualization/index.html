@@ -1,0 +1,3228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>化学反応の可視化アプリケーション</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .reaction-selector {
+            flex: 1 1 100%;
+            background-color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+        
+        .reaction-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .reaction-button {
+            flex: 1;
+            min-width: 160px;
+            padding: 12px;
+            background-color: #f1f1f1;
+            color: #333;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #ddd;
+        }
+        
+        .reaction-button span {
+            margin-top: 5px;
+            font-size: 13px;
+            color: #777;
+        }
+        
+        .reaction-button:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+        }
+        
+        .reaction-button.active {
+            background-color: #4263eb;
+            color: white;
+            border-color: #4263eb;
+        }
+        
+        .reaction-button.active span {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .visualization-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .canvas-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .time-label {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        
+        .reaction-controls {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .control-button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-button svg {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .control-button.start {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .control-button.start:hover {
+            background-color: #43a047;
+        }
+        
+        .control-button.stop {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .control-button.stop:hover {
+            background-color: #e53935;
+        }
+        
+        .control-button.reset {
+            background-color: #ff9800;
+            color: white;
+        }
+        
+        .control-button.reset:hover {
+            background-color: #fb8c00;
+        }
+        
+        .slider-container {
+            margin-bottom: 25px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .slider-label span {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .slider-track {
+            position: relative;
+            height: 6px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            margin-bottom: 20px;
+        }
+        
+        .progress-track {
+            position: absolute;
+            height: 100%;
+            left: 0;
+            background-color: #4263eb;
+            border-radius: 3px;
+        }
+        
+        .slider-control {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: transparent;
+            outline: none;
+            margin: 0;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .slider-control::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4263eb;
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .slider-control::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4263eb;
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .slider-markers {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            top: -16px;
+        }
+        
+        .marker {
+            width: 12px;
+            height: 12px;
+            background-color: #dee2e6;
+            border-radius: 50%;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .marker.active {
+            background-color: #4263eb;
+        }
+        
+        .marker-label {
+            position: absolute;
+            top: 15px;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #6c757d;
+            white-space: nowrap;
+        }
+        
+        .display-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .option-toggle {
+            flex: 1;
+            min-width: 120px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .option-toggle.active {
+            background-color: #e3f2fd;
+            border-color: #90caf9;
+        }
+        
+        .toggle-checkbox {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #adb5bd;
+            border-radius: 3px;
+            margin-right: 8px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .toggle-checkbox:checked {
+            background-color: #4263eb;
+            border-color: #4263eb;
+        }
+        
+        .toggle-checkbox:checked:after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 1px;
+            width: 5px;
+            height: 9px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        
+        .toggle-label {
+            font-size: 14px;
+        }
+        
+        .data-container {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .reaction-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .info-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-title svg {
+            width: 20px;
+            height: 20px;
+            color: #4263eb;
+        }
+        
+        .reaction-formula {
+            background-color: #f8f9fa;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            text-align: center;
+        }
+        
+        .reaction-details {
+            margin-top: 15px;
+        }
+        
+        .details-heading {
+            font-size: 16px;
+            color: #4263eb;
+            margin-bottom: 8px;
+        }
+        
+        .step-description {
+            background-color: #f1f8fe;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4263eb;
+            margin-bottom: 15px;
+        }
+        
+        .energy-diagram {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .chart-container {
+            height: 240px;
+            position: relative;
+        }
+        
+        .molecule {
+            position: absolute;
+            text-align: center;
+        }
+        
+        .atom {
+            display: inline-block;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            line-height: 40px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .carbon {
+            background-color: #333333;
+        }
+        
+        .hydrogen {
+            background-color: #f2f2f2;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        
+        .oxygen {
+            background-color: #ff0000;
+        }
+        
+        .nitrogen {
+            background-color: #3050f8;
+        }
+        
+        .chlorine {
+            background-color: #1ff01f;
+        }
+        
+        .sodium {
+            background-color: #ab5cf2;
+        }
+        
+        .bond {
+            position: absolute;
+            background-color: #666;
+            transform-origin: 0% 50%;
+            z-index: -1;
+        }
+        
+        .electron {
+            position: absolute;
+            background-color: #4263eb;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            z-index: 10;
+        }
+        
+        .popup {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            max-width: 300px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            z-index: 100;
+            border-left: 4px solid #4263eb;
+        }
+        
+        .popup-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #4263eb;
+        }
+        
+        .popup-content {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .popup-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 18px;
+            line-height: 1;
+        }
+        
+        .stage-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        
+        .stage {
+            font-size: 13px;
+            color: #6c757d;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .stage.active {
+            font-weight: bold;
+            color: #4263eb;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .atom:hover + .tooltip {
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .reaction-buttons {
+                flex-direction: column;
+            }
+            
+            .reaction-button {
+                width: 100%;
+            }
+        }
+        
+        /* Animation keyframes */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes move {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0); }
+        }
+        
+        .atom-label {
+            position: absolute;
+            font-size: 14px;
+            font-weight: bold;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .highlight {
+            animation: pulse 0.8s infinite;
+        }
+        
+        .rotate {
+            animation: rotate 10s linear infinite;
+        }
+        
+        .move {
+            animation: move 2s ease-in-out infinite;
+        }
+        
+        /* Energy level styles */
+        .energy-level {
+            height: 2px;
+            background-color: #ddd;
+            position: relative;
+            margin: 10px 0;
+        }
+        
+        .energy-level.transition {
+            background-color: #ff9800;
+        }
+        
+        .energy-value {
+            position: absolute;
+            right: -50px;
+            top: -10px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .energy-label {
+            position: absolute;
+            left: 10px;
+            top: -10px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .atom-electron {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #4263eb;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>化学反応の可視化アプリケーション</h1>
+            <p>分子レベルで起こる化学反応を視覚的に理解しましょう</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="reaction-selector">
+                <h2>反応の種類を選択</h2>
+                <div class="reaction-buttons">
+                    <button class="reaction-button active" data-reaction="neutralization">
+                        酸塩基中和反応
+                        <span>HCl + NaOH → NaCl + H₂O</span>
+                    </button>
+                    <button class="reaction-button" data-reaction="combustion">
+                        燃焼反応
+                        <span>CH₄ + 2O₂ → CO₂ + 2H₂O</span>
+                    </button>
+                    <button class="reaction-button" data-reaction="synthesis">
+                        合成反応
+                        <span>H₂ + Cl₂ → 2HCl</span>
+                    </button>
+                    <button class="reaction-button" data-reaction="decomposition">
+                        分解反応
+                        <span>2H₂O₂ → 2H₂O + O₂</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="visualization-container">
+                <div class="canvas-container" id="canvas-container">
+                    <div class="time-label" id="time-label">反応前</div>
+                </div>
+                
+                <div class="reaction-controls">
+                    <div class="control-buttons">
+                        <button class="control-button start" id="start-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                            開始
+                        </button>
+                        <button class="control-button stop" id="stop-button" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 6h12v12H6z"/>
+                            </svg>
+                            停止
+                        </button>
+                        <button class="control-button reset" id="reset-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                            </svg>
+                            リセット
+                        </button>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>反応進行度</span>
+                            <span id="progress-value">0%</span>
+                        </div>
+                        <div class="slider-track">
+                            <div class="progress-track" id="progress-track" style="width: 0%;"></div>
+                        </div>
+                        <input type="range" class="slider-control" id="reaction-progress" min="0" max="100" value="0">
+                        <div class="slider-markers">
+                            <div class="marker active" data-value="0">
+                                <div class="marker-label">反応前</div>
+                            </div>
+                            <div class="marker" data-value="25">
+                                <div class="marker-label">初期段階</div>
+                            </div>
+                            <div class="marker" data-value="50">
+                                <div class="marker-label">遷移状態</div>
+                            </div>
+                            <div class="marker" data-value="75">
+                                <div class="marker-label">後期段階</div>
+                            </div>
+                            <div class="marker" data-value="100">
+                                <div class="marker-label">反応後</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>アニメーション速度</span>
+                            <span id="speed-value">中</span>
+                        </div>
+                        <div class="slider-track">
+                            <div class="progress-track" id="speed-track" style="width: 50%;"></div>
+                        </div>
+                        <input type="range" class="slider-control" id="animation-speed" min="1" max="5" value="3">
+                    </div>
+                    
+                    <div class="display-options">
+                        <label class="option-toggle active">
+                            <input type="checkbox" class="toggle-checkbox" id="show-labels" checked>
+                            <span class="toggle-label">ラベル表示</span>
+                        </label>
+                        <label class="option-toggle active">
+                            <input type="checkbox" class="toggle-checkbox" id="show-bonds" checked>
+                            <span class="toggle-label">結合表示</span>
+                        </label>
+                        <label class="option-toggle active">
+                            <input type="checkbox" class="toggle-checkbox" id="show-electrons" checked>
+                            <span class="toggle-label">電子表示</span>
+                        </label>
+                        <label class="option-toggle">
+                            <input type="checkbox" class="toggle-checkbox" id="show-energy">
+                            <span class="toggle-label">エネルギー表示</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-container">
+                <div class="reaction-info">
+                    <h3 class="info-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M0 0h24v24H0V0z" fill="none"/>
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                        </svg>
+                        反応情報
+                    </h3>
+                    <div class="reaction-formula" id="reaction-formula">
+                        HCl + NaOH → NaCl + H₂O
+                    </div>
+                    <div id="reaction-type-description">
+                        酸塩基中和反応は、酸と塩基が反応して塩と水を生成する反応です。
+                        この反応では、HClからH⁺イオンが放出され、NaOHからOH⁻イオンが放出されます。
+                        H⁺とOH⁻が結合して水(H₂O)を形成し、Na⁺とCl⁻が結合して塩(NaCl)を形成します。
+                    </div>
+                    <div class="reaction-details">
+                        <h4 class="details-heading">現在の段階:</h4>
+                        <div class="step-description" id="step-description">
+                            反応前の状態では、HClとNaOHの分子が互いに分離しています。
+                            HClは極性分子で、水中でH⁺とCl⁻に電離しやすい性質があります。
+                            NaOHも同様に、水中でNa⁺とOH⁻に電離します。
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="energy-diagram">
+                    <h3 class="info-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M0 0h24v24H0V0z" fill="none"/>
+                            <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+                        </svg>
+                        エネルギー変化
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="energy-chart"></canvas>
+                    </div>
+                    <div class="stage-indicator">
+                        <div class="stage active" data-stage="0">反応前</div>
+                        <div class="stage" data-stage="25">初期段階</div>
+                        <div class="stage" data-stage="50">遷移状態</div>
+                        <div class="stage" data-stage="75">後期段階</div>
+                        <div class="stage" data-stage="100">反応後</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ポップアップ情報ウィンドウ -->
+        <div class="popup" id="info-popup">
+            <div class="popup-title" id="popup-title">水素原子 (H)</div>
+            <div class="popup-content" id="popup-content">
+                水素原子は最も単純な原子であり、1つの陽子と1つの電子を持ちます。
+                化学反応において、水素は他の原子と容易に結合して化合物を形成します。
+            </div>
+            <div class="popup-close" id="popup-close">×</div>
+        </div>
+    </div>
+    
+    <script>
+        // グローバル変数
+        let canvas;
+        let currentReaction = 'neutralization';
+        let isRunning = false;
+        let progress = 0;
+        let animationSpeed = 3;
+        let molecules = [];
+        let electrons = [];
+        let displayOptions = {
+            showLabels: true,
+            showBonds: true,
+            showElectrons: true,
+            showEnergy: false
+        };
+        let energyChart;
+        let animationTimer;
+        let popupTimeout;
+        
+        // 反応の定義
+        const reactions = {
+            neutralization: {
+                formula: 'HCl + NaOH → NaCl + H₂O',
+                description: '酸塩基中和反応は、酸と塩基が反応して塩と水を生成する反応です。この反応では、HClからH⁺イオンが放出され、NaOHからOH⁻イオンが放出されます。H⁺とOH⁻が結合して水(H₂O)を形成し、Na⁺とCl⁻が結合して塩(NaCl)を形成します。',
+                steps: [
+                    {
+                        title: '反応前',
+                        description: '反応前の状態では、HClとNaOHの分子が互いに分離しています。HClは極性分子で、水中でH⁺とCl⁻に電離しやすい性質があります。NaOHも同様に、水中でNa⁺とOH⁻に電離します。'
+                    },
+                    {
+                        title: '初期段階',
+                        description: 'HClが水中で電離し、H⁺とCl⁻イオンに分かれます。同様に、NaOHもNa⁺とOH⁻イオンに電離します。これらのイオンは水溶液中を自由に移動します。'
+                    },
+                    {
+                        title: '遷移状態',
+                        description: 'H⁺イオンとOH⁻イオンが接近して結合し始めます。これは非常に速く進行する過程で、水分子(H₂O)が形成されつつあります。同時に、Na⁺イオンとCl⁻イオンも互いに引き合います。'
+                    },
+                    {
+                        title: '後期段階',
+                        description: 'H⁺とOH⁻が完全に結合して水分子を形成し、Na⁺とCl⁻が結合してNaClを形成します。この段階ではエネルギーが放出され、発熱反応となります。'
+                    },
+                    {
+                        title: '反応後',
+                        description: '反応が完了し、最終生成物として水(H₂O)と塩化ナトリウム(NaCl)が生成されました。この反応は可逆性が低く、ほぼ完全に右側に進行します。'
+                    }
+                ],
+                energyProfile: [
+                    { x: 0, y: 0, label: '反応物' },
+                    { x: 25, y: -5 },
+                    { x: 50, y: -10 },
+                    { x: 75, y: -15 },
+                    { x: 100, y: -20, label: '生成物' }
+                ],
+                activationEnergy: 0,
+                reactionEnergy: -20,
+                colors: {
+                    reactants: 'rgba(75, 192, 192, 0.2)',
+                    products: 'rgba(75, 192, 192, 0.2)',
+                    line: 'rgb(75, 192, 192)'
+                }
+            },
+            combustion: {
+                formula: 'CH₄ + 2O₂ → CO₂ + 2H₂O',
+                description: '燃焼反応は、炭化水素（メタンなど）が酸素と反応して二酸化炭素と水を生成する酸化反応です。この反応は高温で進行し、大量のエネルギーを放出します。',
+                steps: [
+                    {
+                        title: '反応前',
+                        description: '反応前の状態では、メタン(CH₄)分子と酸素(O₂)分子が存在しています。メタンは炭素原子を中心に4つの水素原子が結合した正四面体構造を持ちます。'
+                    },
+                    {
+                        title: '初期段階',
+                        description: '反応が始まると、熱や火花によってメタン分子の活性化が起こります。酸素分子がメタン分子に接近し、C-H結合が少し弱まり始めます。'
+                    },
+                    {
+                        title: '遷移状態',
+                        description: 'メタンのC-H結合の一部が切断され、同時にC-O結合とH-O結合が形成され始めます。この段階ではエネルギー障壁を超える必要があり、活性化エネルギーが必要です。'
+                    },
+                    {
+                        title: '後期段階',
+                        description: '炭素原子と酸素原子が結合して二酸化炭素(CO₂)の形成が進み、水素原子と酸素原子が結合して水(H₂O)の形成が進みます。この段階で大量のエネルギーが放出されます。'
+                    },
+                    {
+                        title: '反応後',
+                        description: '反応が完了し、二酸化炭素(CO₂)と水(H₂O)が生成されました。燃焼反応は非常に発熱的で、大量のエネルギーを熱や光として放出します。'
+                    }
+                ],
+                energyProfile: [
+                    { x: 0, y: 0, label: '反応物' },
+                    { x: 25, y: 10 },
+                    { x: 50, y: 40, label: '遷移状態' },
+                    { x: 75, y: -60 },
+                    { x: 100, y: -80, label: '生成物' }
+                ],
+                activationEnergy: 40,
+                reactionEnergy: -80,
+                colors: {
+                    reactants: 'rgba(255, 99, 132, 0.2)',
+                    products: 'rgba(255, 99, 132, 0.2)',
+                    line: 'rgb(255, 99, 132)'
+                }
+            },
+            synthesis: {
+                formula: 'H₂ + Cl₂ → 2HCl',
+                description: '合成反応は、単純な物質が結合してより複雑な物質を作る反応です。水素と塩素の合成反応では、両気体が反応して塩化水素を生成します。',
+                steps: [
+                    {
+                        title: '反応前',
+                        description: '反応前は、水素分子(H₂)と塩素分子(Cl₂)が個別に存在しています。水素分子は2つの水素原子が共有結合しており、塩素分子も同様に2つの塩素原子が共有結合しています。'
+                    },
+                    {
+                        title: '初期段階',
+                        description: '光や熱エネルギーによって、塩素分子が活性化され、塩素ラジカル(Cl・)が生成されます。このラジカルが合成反応の開始を促進します。'
+                    },
+                    {
+                        title: '遷移状態',
+                        description: '塩素ラジカルが水素分子と衝突すると、H-H結合の一部が切断され、H-Cl結合が形成され始めます。この時点で、一時的な中間体が形成されます。'
+                    },
+                    {
+                        title: '後期段階',
+                        description: '最初のHCl分子が形成されると、同時に新たな水素ラジカル(H・)が生成されます。このラジカルが別の塩素分子と反応して、さらにHCl分子を生成する連鎖反応が起こります。'
+                    },
+                    {
+                        title: '反応後',
+                        description: '反応が完了し、水素と塩素はすべて塩化水素(HCl)に変換されました。この反応は発熱反応であり、光や熱によって容易に開始されます。'
+                    }
+                ],
+                energyProfile: [
+                    { x: 0, y: 0, label: '反応物' },
+                    { x: 25, y: 10 },
+                    { x: 50, y: 25, label: '遷移状態' },
+                    { x: 75, y: -10 },
+                    { x: 100, y: -30, label: '生成物' }
+                ],
+                activationEnergy: 25,
+                reactionEnergy: -30,
+                colors: {
+                    reactants: 'rgba(54, 162, 235, 0.2)',
+                    products: 'rgba(54, 162, 235, 0.2)',
+                    line: 'rgb(54, 162, 235)'
+                }
+            },
+            decomposition: {
+                formula: '2H₂O₂ → 2H₂O + O₂',
+                description: '分解反応は、複雑な分子が分解してより単純な分子を生成する反応です。過酸化水素(H₂O₂)の分解反応では、水(H₂O)と酸素(O₂)が生成されます。',
+                steps: [
+                    {
+                        title: '反応前',
+                        description: '反応前の状態では、過酸化水素(H₂O₂)分子が存在しています。H₂O₂分子は、O-O結合を持つことが特徴で、この結合は比較的不安定です。'
+                    },
+                    {
+                        title: '初期段階',
+                        description: '反応が始まると、触媒（例：二酸化マンガンや血液中のカタラーゼ）の作用により、H₂O₂分子のO-O結合が弱まり始めます。'
+                    },
+                    {
+                        title: '遷移状態',
+                        description: 'O-O結合が伸びて切断され始め、同時にO-H結合の再配置が起こります。この時点で、水分子の形成が始まり、酸素原子同士が互いに接近します。'
+                    },
+                    {
+                        title: '後期段階',
+                        description: '二つの水素原子がそれぞれ酸素原子に結合して水分子を形成し、残りの酸素原子同士が結合して酸素分子を形成します。ここでエネルギーが放出されます。'
+                    },
+                    {
+                        title: '反応後',
+                        description: '反応が完了し、2分子の水(H₂O)と1分子の酸素(O₂)が生成されました。この反応は触媒の存在下で速やかに進行し、発熱反応です。'
+                    }
+                ],
+                energyProfile: [
+                    { x: 0, y: 0, label: '反応物' },
+                    { x: 25, y: 10 },
+                    { x: 50, y: 15, label: '遷移状態' },
+                    { x: 75, y: -20 },
+                    { x: 100, y: -40, label: '生成物' }
+                ],
+                activationEnergy: 15,
+                reactionEnergy: -40,
+                colors: {
+                    reactants: 'rgba(153, 102, 255, 0.2)',
+                    products: 'rgba(153, 102, 255, 0.2)',
+                    line: 'rgb(153, 102, 255)'
+                }
+            }
+        };
+
+        // p5.js setup関数
+        function setup() {
+            const canvasContainer = document.getElementById('canvas-container');
+            canvas = createCanvas(canvasContainer.offsetWidth, 400);
+            canvas.parent(canvasContainer);
+            
+            // イベントリスナーのセットアップ
+            setupEventListeners();
+            
+            // 初期化
+            setupEnergyChart();
+            resetSimulation();
+        }
+        
+        // p5.js draw関数
+        function draw() {
+            background(255);
+            
+            // 格子の描画
+            drawGrid();
+            
+            // シミュレーションの実行
+            if (isRunning && progress < 100) {
+                progress += 0.2 * animationSpeed;
+                if (progress > 100) progress = 100;
+                
+                // プログレスバーとスライダーの更新
+                document.getElementById('reaction-progress').value = progress;
+                document.getElementById('progress-track').style.width = `${progress}%`;
+                document.getElementById('progress-value').textContent = `${Math.round(progress)}%`;
+                
+                // マーカーの更新
+                updateMarkers();
+                
+                // ステージ表示の更新
+                updateStageIndicator();
+                
+                // エネルギーチャートの更新
+                updateEnergyChartProgress();
+                
+                // 反応ステップの説明更新
+                updateReactionStepDescription();
+            }
+            
+            // 分子の位置と形状の更新
+            updateMolecules();
+            
+            // 分子の描画
+            drawMolecules();
+            
+            // 電子の描画
+            if (displayOptions.showElectrons) {
+                drawElectrons();
+            }
+        }
+        
+        // 分子の更新
+        function updateMolecules() {
+            switch (currentReaction) {
+                case 'neutralization':
+                    updateNeutralizationReaction();
+                    break;
+                case 'combustion':
+                    updateCombustionReaction();
+                    break;
+                case 'synthesis':
+                    updateSynthesisReaction();
+                    break;
+                case 'decomposition':
+                    updateDecompositionReaction();
+                    break;
+            }
+        }
+        
+        // 酸塩基中和反応の更新
+        function updateNeutralizationReaction() {
+            if (molecules.length === 0) return;
+            
+            // 反応前 (0%) - 分子は初期位置
+            if (progress < 5) {
+                // 何もしない（初期位置のまま）
+            }
+            // 初期段階 (5-30%) - HClとNaOHの電離
+            else if (progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // HCl電離
+                const hcl = molecules[0];
+                const h = molecules[4]; // H+
+                const cl = molecules[5]; // Cl-
+                
+                h.x = lerp(hcl.x - 20, width / 2 - 80, factor);
+                h.y = lerp(hcl.y, height / 2 - 30, factor);
+                h.opacity = lerp(0, 1, factor);
+                
+                cl.x = lerp(hcl.x + 20, width / 2 - 40, factor);
+                cl.y = lerp(hcl.y, height / 2 + 30, factor);
+                cl.opacity = lerp(0, 1, factor);
+                
+                hcl.opacity = lerp(1, 0, factor);
+                
+                // NaOH電離
+                const naoh = molecules[1];
+                const na = molecules[6]; // Na+
+                const oh = molecules[7]; // OH-
+                
+                na.x = lerp(naoh.x - 20, width / 2 + 40, factor);
+                na.y = lerp(naoh.y, height / 2 + 30, factor);
+                na.opacity = lerp(0, 1, factor);
+                
+                oh.x = lerp(naoh.x + 20, width / 2 + 80, factor);
+                oh.y = lerp(naoh.y, height / 2 - 30, factor);
+                oh.opacity = lerp(0, 1, factor);
+                
+                naoh.opacity = lerp(1, 0, factor);
+            }
+            // 遷移状態 (30-70%) - イオンの接近と結合
+            else if (progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // イオンの移動と結合
+                const h = molecules[4]; // H+
+                const cl = molecules[5]; // Cl-
+                const na = molecules[6]; // Na+
+                const oh = molecules[7]; // OH-
+                
+                // H+とOH-が接近して水を形成
+                h.x = lerp(width / 2 - 80, width / 2 + 60, factor);
+                h.y = lerp(height / 2 - 30, height / 2 - 25, factor);
+                
+                oh.x = lerp(width / 2 + 80, width / 2 + 75, factor);
+                oh.y = lerp(height / 2 - 30, height / 2 - 25, factor);
+                
+                // Na+とCl-が接近して塩を形成
+                na.x = lerp(width / 2 + 40, width / 2 - 30, factor);
+                na.y = lerp(height / 2 + 30, height / 2 + 25, factor);
+                
+                cl.x = lerp(width / 2 - 40, width / 2 - 60, factor);
+                cl.y = lerp(height / 2 + 30, height / 2 + 25, factor);
+                
+                // 生成物の透明度を徐々に上げる
+                const h2o = molecules[2]; // H2O
+                const nacl = molecules[3]; // NaCl
+                
+                h2o.opacity = lerp(0, factor > 0.7 ? factor : 0, factor);
+                nacl.opacity = lerp(0, factor > 0.7 ? factor : 0, factor);
+                
+                // イオンの透明度を徐々に下げる（後半）
+                if (factor > 0.7) {
+                    h.opacity = lerp(1, 0, (factor - 0.7) / 0.3);
+                    oh.opacity = lerp(1, 0, (factor - 0.7) / 0.3);
+                    na.opacity = lerp(1, 0, (factor - 0.7) / 0.3);
+                    cl.opacity = lerp(1, 0, (factor - 0.7) / 0.3);
+                }
+            }
+            // 後期段階 (70-95%) - 生成物の形成完了
+            else if (progress < 95) {
+                const factor = (progress - 70) / 25;
+                
+                // 生成物の完全表示
+                const h2o = molecules[2]; // H2O
+                const nacl = molecules[3]; // NaCl
+                
+                h2o.opacity = 1;
+                nacl.opacity = 1;
+                
+                // 生成物が最終位置に移動
+                h2o.x = lerp(width / 2 + 70, width * 0.75, factor);
+                h2o.y = lerp(height / 2 - 25, height * 0.4, factor);
+                
+                nacl.x = lerp(width / 2 - 50, width * 0.75, factor);
+                nacl.y = lerp(height / 2 + 25, height * 0.6, factor);
+                
+                // イオンは完全に消える
+                molecules[4].opacity = 0; // H+
+                molecules[5].opacity = 0; // Cl-
+                molecules[6].opacity = 0; // Na+
+                molecules[7].opacity = 0; // OH-
+            }
+            // 反応後 (95-100%) - 安定状態
+            else {
+                // 生成物の最終状態（少し動かす）
+                const h2o = molecules[2]; // H2O
+                const nacl = molecules[3]; // NaCl
+                
+                h2o.y = height * 0.4 + sin(frameCount * 0.05) * 5;
+                nacl.y = height * 0.6 + sin(frameCount * 0.05 + PI) * 5;
+                
+                // 反応物と中間体は非表示
+                molecules[0].opacity = 0; // HCl
+                molecules[1].opacity = 0; // NaOH
+                molecules[4].opacity = 0; // H+
+                molecules[5].opacity = 0; // Cl-
+                molecules[6].opacity = 0; // Na+
+                molecules[7].opacity = 0; // OH-
+            }
+            
+            // 電子の更新
+            updateElectrons();
+        }
+        
+        // 燃焼反応の更新
+        function updateCombustionReaction() {
+            if (molecules.length === 0) return;
+            
+            // 反応前 (0%) - 分子は初期位置
+            if (progress < 5) {
+                // 何もしない（初期位置のまま）
+            }
+            // 初期段階 (5-30%) - 分子の活性化と接近
+            else if (progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // CH4とO2の接近
+                const ch4 = molecules[0]; // メタン
+                const o2_1 = molecules[1]; // 酸素1
+                const o2_2 = molecules[2]; // 酸素2
+                
+                // 分子の動きを表現
+                ch4.x = lerp(width * 0.25, width * 0.4, factor);
+                ch4.y = lerp(height * 0.4, height * 0.45, factor);
+                
+                o2_1.x = lerp(width * 0.25, width * 0.35, factor);
+                o2_1.y = lerp(height * 0.6, height * 0.5, factor);
+                
+                o2_2.x = lerp(width * 0.35, width * 0.45, factor);
+                o2_2.y = lerp(height * 0.6, height * 0.5, factor);
+                
+                // 熱エネルギー表現（振動を追加）
+                const vibration = sin(frameCount * 0.2) * 3 * factor;
+                ch4.x += vibration;
+                o2_1.y += vibration;
+                o2_2.y -= vibration;
+            }
+            // 遷移状態 (30-70%) - 結合の切断と形成
+            else if (progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // 反応物の変形と移動
+                const ch4 = molecules[0]; // メタン
+                const o2_1 = molecules[1]; // 酸素1
+                const o2_2 = molecules[2]; // 酸素2
+                
+                // 徐々に反応物を消していく
+                ch4.opacity = lerp(1, 0, factor);
+                o2_1.opacity = lerp(1, 0, factor);
+                o2_2.opacity = lerp(1, 0, factor);
+                
+                // 中間体（非表示のまま、計算のみ）
+                const midX = width * 0.5;
+                const midY = height * 0.5;
+                
+                // 生成物の出現
+                const co2 = molecules[3]; // 二酸化炭素
+                const h2o_1 = molecules[4]; // 水1
+                const h2o_2 = molecules[5]; // 水2
+                
+                // 生成物の位置を更新（後半から見え始める）
+                co2.x = midX;
+                co2.y = midY - 20;
+                h2o_1.x = midX - 40;
+                h2o_1.y = midY + 20;
+                h2o_2.x = midX + 40;
+                h2o_2.y = midY + 20;
+                
+                // 生成物の透明度を徐々に上げる（後半）
+                if (factor > 0.7) {
+                    const productFactor = (factor - 0.7) / 0.3;
+                    co2.opacity = lerp(0, 0.5, productFactor);
+                    h2o_1.opacity = lerp(0, 0.5, productFactor);
+                    h2o_2.opacity = lerp(0, 0.5, productFactor);
+                }
+                
+                // 火花やエネルギーの表現（点滅効果）
+                if (frameCount % 10 < 5) {
+                    // 火花のような効果を追加（エネルギー放出）
+                    const sparkSize = 30 * factor;
+                    fill(255, 200, 0, 100 * sin(frameCount * 0.1));
+                    noStroke();
+                    ellipse(midX, midY, sparkSize, sparkSize);
+                }
+            }
+            // 後期段階 (70-95%) - 生成物の形成完了
+            else if (progress < 95) {
+                const factor = (progress - 70) / 25;
+                
+                // 反応物を完全に消す
+                molecules[0].opacity = 0; // メタン
+                molecules[1].opacity = 0; // 酸素1
+                molecules[2].opacity = 0; // 酸素2
+                
+                // 生成物の完全表示
+                const co2 = molecules[3]; // 二酸化炭素
+                const h2o_1 = molecules[4]; // 水1
+                const h2o_2 = molecules[5]; // 水2
+                
+                co2.opacity = lerp(0.5, 1, factor);
+                h2o_1.opacity = lerp(0.5, 1, factor);
+                h2o_2.opacity = lerp(0.5, 1, factor);
+                
+                // 生成物が最終位置に移動
+                co2.x = lerp(width * 0.5, width * 0.75, factor);
+                co2.y = lerp(height * 0.5 - 20, height * 0.3, factor);
+                
+                h2o_1.x = lerp(width * 0.5 - 40, width * 0.75 - 30, factor);
+                h2o_1.y = lerp(height * 0.5 + 20, height * 0.5, factor);
+                
+                h2o_2.x = lerp(width * 0.5 + 40, width * 0.75 + 30, factor);
+                h2o_2.y = lerp(height * 0.5 + 20, height * 0.7, factor);
+                
+                // エネルギー放出の表現
+                if (frameCount % 5 < 3) {
+                    const energySize = 100 * (1 - factor);
+                    fill(255, 150, 0, 50 * (1 - factor));
+                    noStroke();
+                    ellipse(width * 0.6, height * 0.5, energySize, energySize);
+                }
+            }
+            // 反応後 (95-100%) - 安定状態
+            else {
+                // 生成物の最終状態（少し動かす）
+                const co2 = molecules[3]; // 二酸化炭素
+                const h2o_1 = molecules[4]; // 水1
+                const h2o_2 = molecules[5]; // 水2
+                
+                co2.y = height * 0.3 + sin(frameCount * 0.05) * 5;
+                h2o_1.y = height * 0.5 + sin(frameCount * 0.05 + PI/3) * 5;
+                h2o_2.y = height * 0.7 + sin(frameCount * 0.05 + 2*PI/3) * 5;
+            }
+            
+            // 電子の更新
+            updateElectrons();
+        }
+        
+        // 合成反応の更新
+        function updateSynthesisReaction() {
+            if (molecules.length === 0) return;
+            
+            // 反応前 (0%) - 分子は初期位置
+            if (progress < 5) {
+                // 何もしない（初期位置のまま）
+            }
+            // 初期段階 (5-30%) - 光によるCl2の活性化
+            else if (progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // H2とCl2の接近
+                const h2 = molecules[0]; // 水素
+                const cl2 = molecules[1]; // 塩素
+                
+                h2.x = lerp(width * 0.25, width * 0.4, factor);
+                h2.y = lerp(height * 0.4, height * 0.45, factor);
+                
+                cl2.x = lerp(width * 0.25, width * 0.35, factor);
+                cl2.y = lerp(height * 0.6, height * 0.5, factor);
+                
+                // 光エネルギーの表現
+                if (frameCount % 10 < 5) {
+                    const lightSize = 30 * factor;
+                    fill(255, 255, 100, 100);
+                    noStroke();
+                    for (let i = 0; i < 5; i++) {
+                        const angle = TWO_PI * i / 5;
+                        const x = cl2.x + cos(angle) * lightSize;
+                        const y = cl2.y + sin(angle) * lightSize;
+                        ellipse(x, y, 5, 5);
+                    }
+                }
+                
+                // Cl2の振動を表現
+                cl2.x += sin(frameCount * 0.2) * 2 * factor;
+            }
+            // 遷移状態 (30-70%) - ラジカル形成と連鎖反応
+            else if (progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // 反応物の変形と移動
+                const h2 = molecules[0]; // 水素
+                const cl2 = molecules[1]; // 塩素
+                
+                // ラジカル中間体（見えないまま計算のみ）
+                const midX = width * 0.5;
+                const midY = height * 0.5;
+                
+                // 反応物を徐々に消す
+                h2.opacity = lerp(1, 0, factor);
+                cl2.opacity = lerp(1, 0, factor);
+                
+                // 生成物の出現
+                const hcl1 = molecules[2]; // HCl 1
+                const hcl2 = molecules[3]; // HCl 2
+                
+                // 生成物の位置を更新
+                hcl1.x = lerp(midX - 20, midX - 30, factor);
+                hcl1.y = lerp(midY - 10, midY - 20, factor);
+                hcl2.x = lerp(midX + 20, midX + 30, factor);
+                hcl2.y = lerp(midY + 10, midY + 20, factor);
+                
+                // 生成物の透明度を徐々に上げる（後半）
+                if (factor > 0.5) {
+                    const productFactor = (factor - 0.5) / 0.5;
+                    hcl1.opacity = lerp(0, 0.7, productFactor);
+                    hcl2.opacity = lerp(0, 0.7, productFactor);
+                }
+                
+                // ラジカル効果の表現
+                if (frameCount % 15 < 7) {
+                    fill(100, 255, 100, 70);
+                    noStroke();
+                    const radicalSize = 10 * (1 - factor);
+                    ellipse(midX, midY, radicalSize, radicalSize);
+                }
+            }
+            // 後期段階 (70-95%) - 生成物の形成完了
+            else if (progress < 95) {
+                const factor = (progress - 70) / 25;
+                
+                // 反応物を完全に消す
+                molecules[0].opacity = 0; // H2
+                molecules[1].opacity = 0; // Cl2
+                
+                // 生成物の完全表示
+                const hcl1 = molecules[2]; // HCl 1
+                const hcl2 = molecules[3]; // HCl 2
+                
+                hcl1.opacity = lerp(0.7, 1, factor);
+                hcl2.opacity = lerp(0.7, 1, factor);
+                
+                // 生成物が最終位置に移動
+                hcl1.x = lerp(width * 0.5 - 30, width * 0.75 - 30, factor);
+                hcl1.y = lerp(height * 0.5 - 20, height * 0.4, factor);
+                
+                hcl2.x = lerp(width * 0.5 + 30, width * 0.75 + 30, factor);
+                hcl2.y = lerp(height * 0.5 + 20, height * 0.6, factor);
+            }
+            // 反応後 (95-100%) - 安定状態
+            else {
+                // 生成物の最終状態（少し動かす）
+                const hcl1 = molecules[2]; // HCl 1
+                const hcl2 = molecules[3]; // HCl 2
+                
+                hcl1.y = height * 0.4 + sin(frameCount * 0.05) * 5;
+                hcl2.y = height * 0.6 + sin(frameCount * 0.05 + PI) * 5;
+            }
+            
+            // 電子の更新
+            updateElectrons();
+        }
+        
+        // 分解反応の更新
+        function updateDecompositionReaction() {
+            if (molecules.length === 0) return;
+            
+            // 反応前 (0%) - 分子は初期位置
+            if (progress < 5) {
+                // 何もしない（初期位置のまま）
+            }
+            // 初期段階 (5-30%) - H2O2の活性化
+            else if (progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // H2O2分子の振動と活性化
+                const h2o2_1 = molecules[0]; // 過酸化水素1
+                const h2o2_2 = molecules[1]; // 過酸化水素2
+                
+                // 分子の振動を表現
+                const vibrate = sin(frameCount * 0.2) * 5 * factor;
+                h2o2_1.x = width * 0.25 + vibrate;
+                h2o2_1.y = height * 0.4;
+                
+                h2o2_2.x = width * 0.25 - vibrate;
+                h2o2_2.y = height * 0.6;
+                
+                // 触媒効果の表現
+                if (frameCount % 10 < 5) {
+                    fill(200, 200, 200, 100);
+                    noStroke();
+                    ellipse(width * 0.35, height * 0.5, 30 * factor, 30 * factor);
+                    fill(0);
+                    textSize(10);
+                    textAlign(CENTER, CENTER);
+                    text("触媒", width * 0.35, height * 0.5);
+                }
+            }
+            // 遷移状態 (30-70%) - O-O結合の切断
+            else if (progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // 反応物の変形と移動
+                const h2o2_1 = molecules[0]; // 過酸化水素1
+                const h2o2_2 = molecules[1]; // 過酸化水素2
+                
+                // 反応物を徐々に消す
+                h2o2_1.opacity = lerp(1, 0, factor);
+                h2o2_2.opacity = lerp(1, 0, factor);
+                
+                // 中間体（見えないまま計算のみ）
+                const midX = width * 0.5;
+                const midY = height * 0.5;
+                
+                // 生成物の出現
+                const h2o_1 = molecules[2]; // 水1
+                const h2o_2 = molecules[3]; // 水2
+                const o2 = molecules[4]; // 酸素
+                
+                // 生成物の位置を更新
+                h2o_1.x = lerp(midX - 40, midX - 50, factor);
+                h2o_1.y = lerp(midY - 30, midY - 40, factor);
+                h2o_2.x = lerp(midX - 40, midX - 50, factor);
+                h2o_2.y = lerp(midY + 30, midY + 40, factor);
+                o2.x = lerp(midX + 40, midX + 50, factor);
+                o2.y = midY;
+                
+                // 生成物の透明度を徐々に上げる（後半）
+                if (factor > 0.5) {
+                    const productFactor = (factor - 0.5) / 0.5;
+                    h2o_1.opacity = lerp(0, 0.7, productFactor);
+                    h2o_2.opacity = lerp(0, 0.7, productFactor);
+                    o2.opacity = lerp(0, 0.7, productFactor);
+                }
+                
+                // 結合切断のエフェクト
+                if (frameCount % 20 < 10 && factor < 0.5) {
+                    stroke(255, 0, 0, 150);
+                    strokeWeight(2);
+                    const breakX = lerp(width * 0.3, width * 0.4, factor * 2);
+                    line(breakX - 10, height * 0.5 - 5, breakX + 10, height * 0.5 + 5);
+                    line(breakX - 10, height * 0.5 + 5, breakX + 10, height * 0.5 - 5);
+                }
+            }
+            // 後期段階 (70-95%) - 生成物の形成完了
+            else if (progress < 95) {
+                const factor = (progress - 70) / 25;
+                
+                // 反応物を完全に消す
+                molecules[0].opacity = 0; // H2O2_1
+                molecules[1].opacity = 0; // H2O2_2
+                
+                // 生成物の完全表示
+                const h2o_1 = molecules[2]; // 水1
+                const h2o_2 = molecules[3]; // 水2
+                const o2 = molecules[4]; // 酸素
+                
+                h2o_1.opacity = lerp(0.7, 1, factor);
+                h2o_2.opacity = lerp(0.7, 1, factor);
+                o2.opacity = lerp(0.7, 1, factor);
+                
+                // 生成物が最終位置に移動
+                h2o_1.x = lerp(width * 0.5 - 50, width * 0.75 - 30, factor);
+                h2o_1.y = lerp(height * 0.5 - 40, height * 0.3, factor);
+                
+                h2o_2.x = lerp(width * 0.5 - 50, width * 0.75 - 30, factor);
+                h2o_2.y = lerp(height * 0.5 + 40, height * 0.5, factor);
+                
+                o2.x = lerp(width * 0.5 + 50, width * 0.75 + 30, factor);
+                o2.y = lerp(height * 0.5, height * 0.7, factor);
+                
+                // エネルギー放出の表現
+                if (frameCount % 15 < 7) {
+                    fill(100, 200, 255, 50 * (1 - factor));
+                    noStroke();
+                    ellipse(width * 0.6, height * 0.5, 60 * (1 - factor), 60 * (1 - factor));
+                }
+            }
+            // 反応後 (95-100%) - 安定状態
+            else {
+                // 生成物の最終状態（少し動かす）
+                const h2o_1 = molecules[2]; // 水1
+                const h2o_2 = molecules[3]; // 水2
+                const o2 = molecules[4]; // 酸素
+                
+                h2o_1.y = height * 0.3 + sin(frameCount * 0.05) * 5;
+                h2o_2.y = height * 0.5 + sin(frameCount * 0.05 + 2*PI/3) * 5;
+                o2.y = height * 0.7 + sin(frameCount * 0.05 + 4*PI/3) * 5;
+            }
+            
+            // 電子の更新
+            updateElectrons();
+        }
+        
+        // 電子の更新
+        function updateElectrons() {
+            electrons = [];
+            
+            // 反応タイプと進行状況に応じて電子を配置
+            switch (currentReaction) {
+                case 'neutralization':
+                    updateNeutralizationElectrons();
+                    break;
+                case 'combustion':
+                    updateCombustionElectrons();
+                    break;
+                case 'synthesis':
+                    updateSynthesisElectrons();
+                    break;
+                case 'decomposition':
+                    updateDecompositionElectrons();
+                    break;
+            }
+        }
+        
+        // 酸塩基中和反応の電子更新
+        function updateNeutralizationElectrons() {
+            // 電子の動きは反応の進行に依存
+            
+            // 初期段階 (5-30%) - 電離時の電子移動
+            if (progress >= 5 && progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // HClからCl-への電子移動
+                if (factor > 0.3 && factor < 0.7) {
+                    const hcl = molecules[0]; // HCl
+                    const cl = molecules[5]; // Cl-
+                    
+                    const electronX = lerp(hcl.x, cl.x, (factor - 0.3) / 0.4);
+                    const electronY = lerp(hcl.y, cl.y, (factor - 0.3) / 0.4);
+                    
+                    electrons.push({
+                        x: electronX,
+                        y: electronY,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                // NaOHからOH-への電子移動
+                if (factor > 0.5 && factor < 0.9) {
+                    const naoh = molecules[1]; // NaOH
+                    const oh = molecules[7]; // OH-
+                    
+                    const electronX = lerp(naoh.x, oh.x, (factor - 0.5) / 0.4);
+                    const electronY = lerp(naoh.y, oh.y, (factor - 0.5) / 0.4);
+                    
+                    electrons.push({
+                        x: electronX,
+                        y: electronY,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+            // 遷移状態 (30-70%) - 結合形成時の電子の共有
+            else if (progress >= 30 && progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // H+とOH-の結合時の電子
+                if (factor > 0.3 && factor < 0.8) {
+                    const h = molecules[4]; // H+
+                    const oh = molecules[7]; // OH-
+                    
+                    // 結合形成時の電子の動き
+                    const angle = frameCount * 0.1;
+                    const radius = lerp(15, 8, (factor - 0.3) / 0.5);
+                    const centerX = lerp(h.x + (oh.x - h.x) * 0.7, (h.x + oh.x) / 2, (factor - 0.3) / 0.5);
+                    const centerY = lerp(h.y + (oh.y - h.y) * 0.7, (h.y + oh.y) / 2, (factor - 0.3) / 0.5);
+                    
+                    electrons.push({
+                        x: centerX + cos(angle) * radius,
+                        y: centerY + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: centerX + cos(angle + PI) * radius,
+                        y: centerY + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                // Na+とCl-の結合時の電子
+                if (factor > 0.4 && factor < 0.9) {
+                    const na = molecules[6]; // Na+
+                    const cl = molecules[5]; // Cl-
+                    
+                    // 電子の移動
+                    const electronX = lerp(cl.x, (na.x + cl.x) / 2, (factor - 0.4) / 0.5);
+                    const electronY = lerp(cl.y, (na.y + cl.y) / 2, (factor - 0.4) / 0.5);
+                    
+                    electrons.push({
+                        x: electronX,
+                        y: electronY,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+            // 後期段階 (70-95%) - 生成物の安定した電子
+            else if (progress >= 70) {
+                const h2o = molecules[2]; // H2O
+                const nacl = molecules[3]; // NaCl
+                
+                if (h2o.opacity > 0.5) {
+                    // H2Oの結合電子
+                    const angle1 = frameCount * 0.1;
+                    const angle2 = frameCount * 0.1 + 2*PI/3;
+                    const angle3 = frameCount * 0.1 + 4*PI/3;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: h2o.x + cos(angle1) * radius,
+                        y: h2o.y + sin(angle1) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o.x + cos(angle2) * radius,
+                        y: h2o.y + sin(angle2) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o.x + cos(angle3) * radius,
+                        y: h2o.y + sin(angle3) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (nacl.opacity > 0.5) {
+                    // NaClのイオン結合電子（周回）
+                    const angle = frameCount * 0.05;
+                    const radius = 15;
+                    
+                    electrons.push({
+                        x: nacl.x + cos(angle) * radius,
+                        y: nacl.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+        }
+        
+        // 燃焼反応の電子更新
+        function updateCombustionElectrons() {
+            // 初期段階 (5-30%) - CH4とO2の活性化
+            if (progress >= 5 && progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // CH4の電子
+                const ch4 = molecules[0]; // メタン
+                
+                if (ch4.opacity > 0.5) {
+                    const angles = [0, PI/2, PI, 3*PI/2];
+                    const radius = 15;
+                    
+                    for (const angle of angles) {
+                        const jitter = (1 + sin(frameCount * 0.2 + angle)) * factor * 3;
+                        electrons.push({
+                            x: ch4.x + cos(angle) * (radius + jitter),
+                            y: ch4.y + sin(angle) * (radius + jitter),
+                            size: 6,
+                            color: 'rgba(0, 100, 255, 0.7)'
+                        });
+                    }
+                }
+                
+                // O2の電子
+                const o2_1 = molecules[1]; // 酸素1
+                const o2_2 = molecules[2]; // 酸素2
+                
+                if (o2_1.opacity > 0.5) {
+                    const angle = frameCount * 0.1;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: o2_1.x + cos(angle) * radius,
+                        y: o2_1.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: o2_1.x + cos(angle + PI) * radius,
+                        y: o2_1.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (o2_2.opacity > 0.5) {
+                    const angle = frameCount * 0.1 + PI/4;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: o2_2.x + cos(angle) * radius,
+                        y: o2_2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: o2_2.x + cos(angle + PI) * radius,
+                        y: o2_2.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+            // 遷移状態 (30-70%) - 結合の切断と形成
+            else if (progress >= 30 && progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // 中間状態の電子（エネルギー放出表現）
+                const midX = width * 0.5;
+                const midY = height * 0.5;
+                
+                if (factor > 0.3 && factor < 0.7) {
+                    const numElectrons = 5;
+                    const radius = 30 * (0.5 + factor * 0.5);
+                    
+                    for (let i = 0; i < numElectrons; i++) {
+                        const angle = frameCount * 0.05 + i * TWO_PI / numElectrons;
+                        const x = midX + cos(angle) * radius;
+                        const y = midY + sin(angle) * radius;
+                        
+                        electrons.push({
+                            x: x,
+                            y: y,
+                            size: 6,
+                            color: 'rgba(255, 150, 0, 0.7)'
+                        });
+                    }
+                }
+            }
+            // 後期段階以降 (70-100%) - 生成物の安定した電子
+            else if (progress >= 70) {
+                const co2 = molecules[3]; // 二酸化炭素
+                const h2o_1 = molecules[4]; // 水1
+                const h2o_2 = molecules[5]; // 水2
+                
+                if (co2.opacity > 0.3) {
+                    // CO2の結合電子
+                    const angles = [0, PI];
+                    const radius = 15;
+                    
+                    for (const angle of angles) {
+                        electrons.push({
+                            x: co2.x + cos(angle) * radius,
+                            y: co2.y + sin(angle) * radius,
+                            size: 6,
+                            color: 'rgba(0, 100, 255, 0.7)'
+                        });
+                        
+                        electrons.push({
+                            x: co2.x + cos(angle) * radius * 0.7,
+                            y: co2.y + sin(angle) * radius * 0.7,
+                            size: 6,
+                            color: 'rgba(0, 100, 255, 0.7)'
+                        });
+                    }
+                }
+                
+                // 水分子の電子
+                if (h2o_1.opacity > 0.3) {
+                    const angle = frameCount * 0.1;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: h2o_1.x + cos(angle) * radius,
+                        y: h2o_1.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o_1.x + cos(angle + 2*PI/3) * radius,
+                        y: h2o_1.y + sin(angle + 2*PI/3) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (h2o_2.opacity > 0.3) {
+                    const angle = frameCount * 0.1 + PI/3;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: h2o_2.x + cos(angle) * radius,
+                        y: h2o_2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o_2.x + cos(angle + 2*PI/3) * radius,
+                        y: h2o_2.y + sin(angle + 2*PI/3) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+        }
+        
+        // 合成反応の電子更新
+        function updateSynthesisElectrons() {
+            // 初期段階 (5-30%) - 光によるCl2の活性化
+            if (progress >= 5 && progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // H2の電子
+                const h2 = molecules[0]; // 水素
+                
+                if (h2.opacity > 0.5) {
+                    const angle = frameCount * 0.1;
+                    const radius = 10;
+                    
+                    electrons.push({
+                        x: h2.x + cos(angle) * radius,
+                        y: h2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2.x + cos(angle + PI) * radius,
+                        y: h2.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                // Cl2の電子
+                const cl2 = molecules[1]; // 塩素
+                
+                if (cl2.opacity > 0.5) {
+                    const jitter = sin(frameCount * 0.2) * factor * 5;
+                    const radius = 15 + jitter;
+                    const angle = frameCount * 0.15;
+                    
+                    electrons.push({
+                        x: cl2.x + cos(angle) * radius,
+                        y: cl2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: cl2.x + cos(angle + PI) * radius,
+                        y: cl2.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+            // 遷移状態 (30-70%) - ラジカル形成と連鎖反応
+            else if (progress >= 30 && progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // ラジカル中間体の電子
+                const midX = width * 0.5;
+                const midY = height * 0.5;
+                
+                if (factor > 0.2 && factor < 0.7) {
+                    // ラジカル電子
+                    const radicalFactor = min(1, (factor - 0.2) / 0.3);
+                    const x = midX + sin(frameCount * 0.2) * 20 * radicalFactor;
+                    const y = midY + cos(frameCount * 0.2) * 10 * radicalFactor;
+                    
+                    electrons.push({
+                        x: x,
+                        y: y,
+                        size: 8,
+                        color: 'rgba(100, 255, 100, 0.7)'
+                    });
+                }
+                
+                // 生成物の形成途中の電子
+                const hcl1 = molecules[2]; // HCl 1
+                const hcl2 = molecules[3]; // HCl 2
+                
+                if (hcl1.opacity > 0.2) {
+                    const angle = frameCount * 0.1;
+                    const radius = 12 * min(1, hcl1.opacity);
+                    
+                    electrons.push({
+                        x: hcl1.x + cos(angle) * radius,
+                        y: hcl1.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (hcl2.opacity > 0.2) {
+                    const angle = frameCount * 0.1 + PI/2;
+                    const radius = 12 * min(1, hcl2.opacity);
+                    
+                    electrons.push({
+                        x: hcl2.x + cos(angle) * radius,
+                        y: hcl2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+            // 後期段階以降 (70-100%) - 安定した生成物の電子
+            else if (progress >= 70) {
+                const hcl1 = molecules[2]; // HCl 1
+                const hcl2 = molecules[3]; // HCl 2
+                
+                if (hcl1.opacity > 0.5) {
+                    const angle = frameCount * 0.1;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: hcl1.x + cos(angle) * radius,
+                        y: hcl1.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: hcl1.x + cos(angle + PI) * radius,
+                        y: hcl1.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (hcl2.opacity > 0.5) {
+                    const angle = frameCount * 0.1 + PI/3;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: hcl2.x + cos(angle) * radius,
+                        y: hcl2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: hcl2.x + cos(angle + PI) * radius,
+                        y: hcl2.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+        }
+        
+        // 分解反応の電子更新
+        function updateDecompositionElectrons() {
+            // 初期段階 (5-30%) - H2O2の活性化
+            if (progress >= 5 && progress < 30) {
+                const factor = (progress - 5) / 25;
+                
+                // H2O2分子の電子
+                const h2o2_1 = molecules[0]; // 過酸化水素1
+                const h2o2_2 = molecules[1]; // 過酸化水素2
+                
+                if (h2o2_1.opacity > 0.5) {
+                    // O-O結合の不安定な電子
+                    const jitter = sin(frameCount * 0.3) * factor * 5;
+                    const radius = 12 + jitter;
+                    const angle = frameCount * 0.1;
+                    
+                    electrons.push({
+                        x: h2o2_1.x + cos(angle) * radius,
+                        y: h2o2_1.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o2_1.x + cos(angle + PI) * radius,
+                        y: h2o2_1.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (h2o2_2.opacity > 0.5) {
+                    const jitter = sin(frameCount * 0.3 + PI) * factor * 5;
+                    const radius = 12 + jitter;
+                    const angle = frameCount * 0.1 + PI/4;
+                    
+                    electrons.push({
+                        x: h2o2_2.x + cos(angle) * radius,
+                        y: h2o2_2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o2_2.x + cos(angle + PI) * radius,
+                        y: h2o2_2.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+            // 遷移状態 (30-70%) - O-O結合の切断
+            else if (progress >= 30 && progress < 70) {
+                const factor = (progress - 30) / 40;
+                
+                // 不安定なO-O結合電子
+                const midX = width * 0.4;
+                const midY = height * 0.5;
+                
+                if (factor < 0.5) {
+                    const wiggle = sin(frameCount * 0.5) * 10;
+                    const x = midX + wiggle;
+                    const y = midY + wiggle * 0.5;
+                    
+                    electrons.push({
+                        x: x,
+                        y: y,
+                        size: 7,
+                        color: 'rgba(255, 100, 100, 0.7)'
+                    });
+                }
+                
+                // 生成物の形成途中の電子
+                const h2o_1 = molecules[2]; // 水1
+                const h2o_2 = molecules[3]; // 水2
+                const o2 = molecules[4]; // 酸素
+                
+                if (h2o_1.opacity > 0.2) {
+                    const angle = frameCount * 0.1;
+                    const radius = 10 * min(1, h2o_1.opacity);
+                    
+                    electrons.push({
+                        x: h2o_1.x + cos(angle) * radius,
+                        y: h2o_1.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (h2o_2.opacity > 0.2) {
+                    const angle = frameCount * 0.1 + PI/2;
+                    const radius = 10 * min(1, h2o_2.opacity);
+                    
+                    electrons.push({
+                        x: h2o_2.x + cos(angle) * radius,
+                        y: h2o_2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (o2.opacity > 0.2) {
+                    const angle = frameCount * 0.15;
+                    const radius = 12 * min(1, o2.opacity);
+                    
+                    electrons.push({
+                        x: o2.x + cos(angle) * radius,
+                        y: o2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: o2.x + cos(angle + PI) * radius,
+                        y: o2.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+            // 後期段階以降 (70-100%) - 安定した生成物の電子
+            else if (progress >= 70) {
+                const h2o_1 = molecules[2]; // 水1
+                const h2o_2 = molecules[3]; // 水2
+                const o2 = molecules[4]; // 酸素
+                
+                if (h2o_1.opacity > 0.5) {
+                    const angle = frameCount * 0.1;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: h2o_1.x + cos(angle) * radius,
+                        y: h2o_1.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o_1.x + cos(angle + 2*PI/3) * radius,
+                        y: h2o_1.y + sin(angle + 2*PI/3) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o_1.x + cos(angle + 4*PI/3) * radius,
+                        y: h2o_1.y + sin(angle + 4*PI/3) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (h2o_2.opacity > 0.5) {
+                    const angle = frameCount * 0.1 + PI/3;
+                    const radius = 12;
+                    
+                    electrons.push({
+                        x: h2o_2.x + cos(angle) * radius,
+                        y: h2o_2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o_2.x + cos(angle + 2*PI/3) * radius,
+                        y: h2o_2.y + sin(angle + 2*PI/3) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: h2o_2.x + cos(angle + 4*PI/3) * radius,
+                        y: h2o_2.y + sin(angle + 4*PI/3) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+                
+                if (o2.opacity > 0.5) {
+                    const angle = frameCount * 0.1;
+                    const radius = 15;
+                    
+                    electrons.push({
+                        x: o2.x + cos(angle) * radius,
+                        y: o2.y + sin(angle) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: o2.x + cos(angle + PI/2) * radius,
+                        y: o2.y + sin(angle + PI/2) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: o2.x + cos(angle + PI) * radius,
+                        y: o2.y + sin(angle + PI) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                    
+                    electrons.push({
+                        x: o2.x + cos(angle + 3*PI/2) * radius,
+                        y: o2.y + sin(angle + 3*PI/2) * radius,
+                        size: 6,
+                        color: 'rgba(0, 100, 255, 0.7)'
+                    });
+                }
+            }
+        }
+        
+        // 分子の描画
+        function drawMolecules() {
+            for (const molecule of molecules) {
+                if (molecule.opacity <= 0) continue;
+                
+                push();
+                translate(molecule.x, molecule.y);
+                
+                // スケールと回転の適用
+                scale(molecule.scale);
+                rotate(molecule.rotation);
+                
+                // 結合の描画
+                if (displayOptions.showBonds && molecule.bonds) {
+                    for (const bond of molecule.bonds) {
+                        drawBond(bond, molecule.opacity);
+                    }
+                }
+                
+                // 原子の描画
+                for (const atom of molecule.atoms) {
+                    drawAtom(atom, molecule.opacity);
+                }
+                
+                pop();
+            }
+        }
+        
+        // 原子の描画
+        function drawAtom(atom, opacity) {
+            // 原子サイズ
+            const size = atom.size || 20;
+            
+            // 原子色の設定
+            let atomColor;
+            switch (atom.element) {
+                case 'H':
+                    atomColor = color(242, 242, 242);
+                    break;
+                case 'O':
+                    atomColor = color(255, 0, 0);
+                    break;
+                case 'C':
+                    atomColor = color(50, 50, 50);
+                    break;
+                case 'N':
+                    atomColor = color(48, 80, 248);
+                    break;
+                case 'Cl':
+                    atomColor = color(31, 240, 31);
+                    break;
+                case 'Na':
+                    atomColor = color(171, 92, 242);
+                    break;
+                default:
+                    atomColor = color(200, 200, 200);
+            }
+            
+            // 塗りつぶし色の透明度を設定
+            atomColor.setAlpha(opacity * 255);
+            
+            // 原子の描画
+            fill(atomColor);
+            stroke(0, opacity * 255);
+            strokeWeight(1);
+            ellipse(atom.x, atom.y, size, size);
+            
+            // 原子ラベルの描画
+            if (displayOptions.showLabels) {
+                fill(atom.element === 'H' ? 0 : 255, opacity * 255);
+                noStroke();
+                textSize(size * 0.5);
+                textAlign(CENTER, CENTER);
+                text(atom.element, atom.x, atom.y);
+            }
+            
+            // 原子電荷の表示
+            if (atom.charge && displayOptions.showLabels) {
+                textSize(size * 0.3);
+                textAlign(CENTER, TOP);
+                let chargeText = atom.charge > 0 ? '+' : '−';
+                if (abs(atom.charge) > 1) {
+                    chargeText = abs(atom.charge) + chargeText;
+                }
+                text(chargeText, atom.x + size/3, atom.y - size/3);
+            }
+        }
+        
+        // 結合の描画
+        function drawBond(bond, opacity) {
+            const x1 = bond.from.x;
+            const y1 = bond.from.y;
+            const x2 = bond.to.x;
+            const y2 = bond.to.y;
+            
+            const bondLength = dist(x1, y1, x2, y2);
+            const bondAngle = atan2(y2 - y1, x2 - x1);
+            
+            // 結合の種類に応じた描画
+            switch(bond.type) {
+                case 'single':
+                    stroke(100, 100, 100, opacity * 255);
+                    strokeWeight(3);
+                    line(x1, y1, x2, y2);
+                    break;
+                    
+                case 'double':
+                    const offset = 3;
+                    stroke(100, 100, 100, opacity * 255);
+                    strokeWeight(2);
+                    
+                    // 二重結合の2本の線を描画
+                    push();
+                    translate(x1, y1);
+                    rotate(bondAngle);
+                    line(0, -offset, bondLength, -offset);
+                    line(0, offset, bondLength, offset);
+                    pop();
+                    break;
+                    
+                case 'triple':
+                    const tripleOffset = 4;
+                    stroke(100, 100, 100, opacity * 255);
+                    strokeWeight(2);
+                    
+                    // 三重結合の3本の線を描画
+                    push();
+                    translate(x1, y1);
+                    rotate(bondAngle);
+                    line(0, -tripleOffset, bondLength, -tripleOffset);
+                    line(0, 0, bondLength, 0);
+                    line(0, tripleOffset, bondLength, tripleOffset);
+                    pop();
+                    break;
+                    
+                case 'ionic':
+                    // イオン結合は点線で表現
+                    stroke(100, 100, 100, opacity * 200);
+                    strokeWeight(2);
+                    drawingContext.setLineDash([5, 3]);
+                    line(x1, y1, x2, y2);
+                    drawingContext.setLineDash([]);
+                    break;
+            }
+        }
+        
+        // 電子の描画
+        function drawElectrons() {
+            for (const electron of electrons) {
+                fill(electron.color);
+                noStroke();
+                ellipse(electron.x, electron.y, electron.size, electron.size);
+            }
+        }
+        
+        // 背景の格子描画
+        function drawGrid() {
+            stroke(230);
+            strokeWeight(1);
+            
+            // 水平線
+            for (let y = 0; y <= height; y += 50) {
+                line(0, y, width, y);
+            }
+            
+            // 垂直線
+            for (let x = 0; x <= width; x += 50) {
+                line(x, 0, x, height);
+            }
+        }
+        
+        // シミュレーションのリセット
+        function resetSimulation() {
+            // 進行状況のリセット
+            progress = 0;
+            isRunning = false;
+            
+            // プログレスバーの更新
+            document.getElementById('reaction-progress').value = 0;
+            document.getElementById('progress-track').style.width = '0%';
+            document.getElementById('progress-value').textContent = '0%';
+            
+            // マーカーの更新
+            updateMarkers();
+            
+            // エネルギーチャートの更新
+            updateEnergyChartProgress();
+            
+            // 時間表示の更新
+            document.getElementById('time-label').textContent = '反応前';
+            
+            // ボタン状態の更新
+            document.getElementById('start-button').disabled = false;
+            document.getElementById('stop-button').disabled = true;
+            
+            // ステージ表示の更新
+            updateStageIndicator();
+            
+            // 分子の初期化
+            initializeMolecules();
+            
+            // 反応ステップの説明更新
+            updateReactionStepDescription();
+        }
+        
+        // 反応タイプに応じた分子の初期化
+        function initializeMolecules() {
+            molecules = [];
+            
+            switch (currentReaction) {
+                case 'neutralization':
+                    initializeNeutralizationMolecules();
+                    break;
+                case 'combustion':
+                    initializeCombustionMolecules();
+                    break;
+                case 'synthesis':
+                    initializeSynthesisMolecules();
+                    break;
+                case 'decomposition':
+                    initializeDecompositionMolecules();
+                    break;
+            }
+        }
+        
+        // 酸塩基中和反応の分子初期化
+        function initializeNeutralizationMolecules() {
+            // HCl分子
+            molecules.push({
+                name: 'HCl',
+                x: width * 0.25,
+                y: height * 0.4,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'H', x: -15, y: 0, size: 20 },
+                    { element: 'Cl', x: 15, y: 0, size: 30, charge: -1 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'single' }
+                ]
+            });
+            
+            // NaOH分子
+            molecules.push({
+                name: 'NaOH',
+                x: width * 0.25,
+                y: height * 0.6,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'Na', x: -15, y: 0, size: 35, charge: 1 },
+                    { element: 'O', x: 5, y: 0, size: 28 },
+                    { element: 'H', x: 25, y: 0, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 5, y: 0 }, type: 'ionic' },
+                    { from: { x: 5, y: 0 }, to: { x: 25, y: 0 }, type: 'single' }
+                ]
+            });
+            
+            // H2O分子（初期状態では非表示）
+            molecules.push({
+                name: 'H2O',
+                x: width * 0.75,
+                y: height * 0.4,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'O', x: 0, y: 0, size: 30 },
+                    { element: 'H', x: -15, y: -15, size: 20 },
+                    { element: 'H', x: 15, y: -15, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: -15, y: -15 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: 15, y: -15 }, type: 'single' }
+                ]
+            });
+            
+            // NaCl分子（初期状態では非表示）
+            molecules.push({
+                name: 'NaCl',
+                x: width * 0.75,
+                y: height * 0.6,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'Na', x: -15, y: 0, size: 35, charge: 1 },
+                    { element: 'Cl', x: 15, y: 0, size: 30, charge: -1 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'ionic' }
+                ]
+            });
+            
+            // 中間体のイオン（初期状態では非表示）
+            // H+イオン
+            molecules.push({
+                name: 'H+',
+                x: width * 0.4,
+                y: height * 0.3,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'H', x: 0, y: 0, size: 20, charge: 1 }
+                ],
+                bonds: []
+            });
+            
+            // Cl-イオン
+            molecules.push({
+                name: 'Cl-',
+                x: width * 0.4,
+                y: height * 0.5,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'Cl', x: 0, y: 0, size: 30, charge: -1 }
+                ],
+                bonds: []
+            });
+            
+            // Na+イオン
+            molecules.push({
+                name: 'Na+',
+                x: width * 0.6,
+                y: height * 0.5,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'Na', x: 0, y: 0, size: 35, charge: 1 }
+                ],
+                bonds: []
+            });
+            
+            // OH-イオン
+            molecules.push({
+                name: 'OH-',
+                x: width * 0.6,
+                y: height * 0.3,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'O', x: 0, y: 0, size: 28, charge: -1 },
+                    { element: 'H', x: 20, y: 0, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: 20, y: 0 }, type: 'single' }
+                ]
+            });
+        }
+        
+        // 燃焼反応の分子初期化
+        function initializeCombustionMolecules() {
+            // CH4分子（メタン）
+            molecules.push({
+                name: 'CH4',
+                x: width * 0.25,
+                y: height * 0.4,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'C', x: 0, y: 0, size: 30 },
+                    { element: 'H', x: -20, y: -20, size: 20 },
+                    { element: 'H', x: 20, y: -20, size: 20 },
+                    { element: 'H', x: 20, y: 20, size: 20 },
+                    { element: 'H', x: -20, y: 20, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: -20, y: -20 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: 20, y: -20 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: 20, y: 20 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: -20, y: 20 }, type: 'single' }
+                ]
+            });
+            
+            // O2分子1
+            molecules.push({
+                name: 'O2_1',
+                x: width * 0.25,
+                y: height * 0.6,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'O', x: -15, y: 0, size: 28 },
+                    { element: 'O', x: 15, y: 0, size: 28 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'double' }
+                ]
+            });
+            
+            // O2分子2
+            molecules.push({
+                name: 'O2_2',
+                x: width * 0.35,
+                y: height * 0.6,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'O', x: -15, y: 0, size: 28 },
+                    { element: 'O', x: 15, y: 0, size: 28 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'double' }
+                ]
+            });
+            
+            // CO2分子（初期状態では非表示）
+            molecules.push({
+                name: 'CO2',
+                x: width * 0.75,
+                y: height * 0.3,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'C', x: 0, y: 0, size: 30 },
+                    { element: 'O', x: -25, y: 0, size: 28 },
+                    { element: 'O', x: 25, y: 0, size: 28 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: -25, y: 0 }, type: 'double' },
+                    { from: { x: 0, y: 0 }, to: { x: 25, y: 0 }, type: 'double' }
+                ]
+            });
+            
+            // H2O分子1（初期状態では非表示）
+            molecules.push({
+                name: 'H2O_1',
+                x: width * 0.75 - 30,
+                y: height * 0.5,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'O', x: 0, y: 0, size: 28 },
+                    { element: 'H', x: -15, y: -15, size: 20 },
+                    { element: 'H', x: 15, y: -15, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: -15, y: -15 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: 15, y: -15 }, type: 'single' }
+                ]
+            });
+            
+            // H2O分子2（初期状態では非表示）
+            molecules.push({
+                name: 'H2O_2',
+                x: width * 0.75 + 30,
+                y: height * 0.7,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'O', x: 0, y: 0, size: 28 },
+                    { element: 'H', x: -15, y: -15, size: 20 },
+                    { element: 'H', x: 15, y: -15, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: -15, y: -15 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: 15, y: -15 }, type: 'single' }
+                ]
+            });
+        }
+        
+        // 合成反応の分子初期化
+        function initializeSynthesisMolecules() {
+            // H2分子
+            molecules.push({
+                name: 'H2',
+                x: width * 0.25,
+                y: height * 0.4,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'H', x: -12, y: 0, size: 24 },
+                    { element: 'H', x: 12, y: 0, size: 24 }
+                ],
+                bonds: [
+                    { from: { x: -12, y: 0 }, to: { x: 12, y: 0 }, type: 'single' }
+                ]
+            });
+            
+            // Cl2分子
+            molecules.push({
+                name: 'Cl2',
+                x: width * 0.25,
+                y: height * 0.6,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'Cl', x: -18, y: 0, size: 32 },
+                    { element: 'Cl', x: 18, y: 0, size: 32 }
+                ],
+                bonds: [
+                    { from: { x: -18, y: 0 }, to: { x: 18, y: 0 }, type: 'single' }
+                ]
+            });
+            
+            // HCl分子1（初期状態では非表示）
+            molecules.push({
+                name: 'HCl_1',
+                x: width * 0.75 - 30,
+                y: height * 0.4,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'H', x: -15, y: 0, size: 24 },
+                    { element: 'Cl', x: 15, y: 0, size: 32 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'single' }
+                ]
+            });
+            
+            // HCl分子2（初期状態では非表示）
+            molecules.push({
+                name: 'HCl_2',
+                x: width * 0.75 + 30,
+                y: height * 0.6,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'H', x: -15, y: 0, size: 24 },
+                    { element: 'Cl', x: 15, y: 0, size: 32 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'single' }
+                ]
+            });
+        }
+        
+        // 分解反応の分子初期化
+        function initializeDecompositionMolecules() {
+            // H2O2分子1（過酸化水素）
+            molecules.push({
+                name: 'H2O2_1',
+                x: width * 0.25,
+                y: height * 0.4,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'O', x: -15, y: 0, size: 28 },
+                    { element: 'O', x: 15, y: 0, size: 28 },
+                    { element: 'H', x: -30, y: -15, size: 20 },
+                    { element: 'H', x: 30, y: 15, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'single' },
+                    { from: { x: -15, y: 0 }, to: { x: -30, y: -15 }, type: 'single' },
+                    { from: { x: 15, y: 0 }, to: { x: 30, y: 15 }, type: 'single' }
+                ]
+            });
+            
+            // H2O2分子2（過酸化水素）
+            molecules.push({
+                name: 'H2O2_2',
+                x: width * 0.25,
+                y: height * 0.6,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                atoms: [
+                    { element: 'O', x: -15, y: 0, size: 28 },
+                    { element: 'O', x: 15, y: 0, size: 28 },
+                    { element: 'H', x: -30, y: -15, size: 20 },
+                    { element: 'H', x: 30, y: 15, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'single' },
+                    { from: { x: -15, y: 0 }, to: { x: -30, y: -15 }, type: 'single' },
+                    { from: { x: 15, y: 0 }, to: { x: 30, y: 15 }, type: 'single' }
+                ]
+            });
+            
+            // H2O分子1（初期状態では非表示）
+            molecules.push({
+                name: 'H2O_1',
+                x: width * 0.75 - 30,
+                y: height * 0.3,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'O', x: 0, y: 0, size: 28 },
+                    { element: 'H', x: -15, y: -15, size: 20 },
+                    { element: 'H', x: 15, y: -15, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: -15, y: -15 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: 15, y: -15 }, type: 'single' }
+                ]
+            });
+            
+            // H2O分子2（初期状態では非表示）
+            molecules.push({
+                name: 'H2O_2',
+                x: width * 0.75 - 30,
+                y: height * 0.5,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'O', x: 0, y: 0, size: 28 },
+                    { element: 'H', x: -15, y: -15, size: 20 },
+                    { element: 'H', x: 15, y: -15, size: 20 }
+                ],
+                bonds: [
+                    { from: { x: 0, y: 0 }, to: { x: -15, y: -15 }, type: 'single' },
+                    { from: { x: 0, y: 0 }, to: { x: 15, y: -15 }, type: 'single' }
+                ]
+            });
+            
+            // O2分子（初期状態では非表示）
+            molecules.push({
+                name: 'O2',
+                x: width * 0.75 + 30,
+                y: height * 0.7,
+                rotation: 0,
+                scale: 1,
+                opacity: 0,
+                atoms: [
+                    { element: 'O', x: -15, y: 0, size: 28 },
+                    { element: 'O', x: 15, y: 0, size: 28 }
+                ],
+                bonds: [
+                    { from: { x: -15, y: 0 }, to: { x: 15, y: 0 }, type: 'double' }
+                ]
+            });
+        }
+        
+        // マーカーの更新
+        function updateMarkers() {
+            const markers = document.querySelectorAll('.marker');
+            
+            markers.forEach(marker => {
+                const value = parseInt(marker.getAttribute('data-value'));
+                if (progress >= value) {
+                    marker.classList.add('active');
+                } else {
+                    marker.classList.remove('active');
+                }
+            });
+        }
+        
+        // ステージインジケーターの更新
+        function updateStageIndicator() {
+            const stages = document.querySelectorAll('.stage');
+            
+            stages.forEach(stage => {
+                const value = parseInt(stage.getAttribute('data-stage'));
+                if (Math.abs(progress - value) <= 12.5) {
+                    stage.classList.add('active');
+                } else {
+                    stage.classList.remove('active');
+                }
+            });
+        }
+        
+        // 反応ステップの説明更新
+        function updateReactionStepDescription() {
+            const reaction = reactions[currentReaction];
+            let stepIndex = 0;
+            
+            if (progress < 5) {
+                stepIndex = 0; // 反応前
+            } else if (progress < 30) {
+                stepIndex = 1; // 初期段階
+            } else if (progress < 70) {
+                stepIndex = 2; // 遷移状態
+            } else if (progress < 95) {
+                stepIndex = 3; // 後期段階
+            } else {
+                stepIndex = 4; // 反応後
+            }
+            
+            const step = reaction.steps[stepIndex];
+            const stepDescription = document.getElementById('step-description');
+            
+            stepDescription.innerHTML = step.description;
+            
+            // 時間表示の更新
+            document.getElementById('time-label').textContent = step.title;
+        }
+        
+        // エネルギーチャートの初期設定
+        function setupEnergyChart() {
+            const ctx = document.getElementById('energy-chart').getContext('2d');
+            
+            // 初期データ
+            const reaction = reactions[currentReaction];
+            const data = {
+                labels: reaction.energyProfile.map(point => point.x),
+                datasets: [{
+                    label: '反応エネルギー',
+                    data: reaction.energyProfile,
+                    borderColor: reaction.colors.line,
+                    backgroundColor: reaction.colors.reactants,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            };
+            
+            // グラデーション背景の設定
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(54, 162, 235, 0.2)');
+            gradient.addColorStop(1, 'rgba(54, 162, 235, 0.05)');
+            
+            // チャートオプション
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `エネルギー: ${context.parsed.y} kJ/mol`;
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        display: false,
+                        min: 0,
+                        max: 100
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'エネルギー (kJ/mol)'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 0
+                },
+                elements: {
+                    line: {
+                        tension: 0.4
+                    }
+                }
+            };
+            
+            // チャートの作成
+            energyChart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: options
+            });
+            
+            // アノテーション（現在位置を示す縦線）
+            updateEnergyChartProgress();
+        }
+        
+        // エネルギーチャートの反応タイプ更新
+        function updateEnergyChartForReaction() {
+            const reaction = reactions[currentReaction];
+            
+            // データの更新
+            energyChart.data.datasets[0].data = reaction.energyProfile;
+            energyChart.data.datasets[0].borderColor = reaction.colors.line;
+            energyChart.data.datasets[0].backgroundColor = reaction.colors.reactants;
+            
+            // アノテーションの更新
+            updateEnergyChartProgress();
+            
+            // チャートの更新
+            energyChart.update();
+        }
+        
+        // エネルギーチャートの進行状況更新
+        function updateEnergyChartProgress() {
+            // 現在の進行状況を示す縦線とマーカーを追加
+            const currentData = reactions[currentReaction].energyProfile;
+            
+            // 現在のx座標に対応するyの値を計算
+            let currentY = 0;
+            
+            for (let i = 0; i < currentData.length - 1; i++) {
+                const x1 = currentData[i].x;
+                const y1 = currentData[i].y;
+                const x2 = currentData[i + 1].x;
+                const y2 = currentData[i + 1].y;
+                
+                if (progress >= x1 && progress <= x2) {
+                    // 線形補間
+                    const ratio = (progress - x1) / (x2 - x1);
+                    currentY = y1 + ratio * (y2 - y1);
+                    break;
+                }
+            }
+            
+            // 既存のアノテーションがあれば削除
+            if (energyChart.options.plugins.annotation) {
+                delete energyChart.options.plugins.annotation;
+            }
+            
+            // アノテーションプラグインの設定
+            energyChart.options.plugins.annotation = {
+                annotations: {
+                    line1: {
+                        type: 'line',
+                        xMin: progress,
+                        xMax: progress,
+                        borderColor: 'rgba(255, 99, 132, 0.8)',
+                        borderWidth: 2,
+                    },
+                    point1: {
+                        type: 'point',
+                        xValue: progress,
+                        yValue: currentY,
+                        backgroundColor: 'rgba(255, 99, 132, 1)',
+                        radius: 5
+                    }
+                }
+            };
+            
+            // チャートの更新
+            energyChart.update();
+        }
+        
+        // イベントリスナーのセットアップ
+        function setupEventListeners() {
+            // 反応タイプの選択
+            document.querySelectorAll('.reaction-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const reactionType = this.getAttribute('data-reaction');
+                    
+                    // 既に選択されている場合は何もしない
+                    if (reactionType === currentReaction) return;
+                    
+                    // ボタンのアクティブ状態を更新
+                    document.querySelectorAll('.reaction-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // 反応タイプの更新
+                    currentReaction = reactionType;
+                    
+                    // 反応式の更新
+                    document.getElementById('reaction-formula').textContent = reactions[currentReaction].formula;
+                    
+                    // 反応説明の更新
+                    document.getElementById('reaction-type-description').textContent = reactions[currentReaction].description;
+                    
+                    // エネルギーチャートの更新
+                    updateEnergyChartForReaction();
+                    
+                    // シミュレーションのリセット
+                    resetSimulation();
+                });
+            });
+            
+            // 開始ボタン
+            document.getElementById('start-button').addEventListener('click', function() {
+                isRunning = true;
+                this.disabled = true;
+                document.getElementById('stop-button').disabled = false;
+            });
+            
+            // 停止ボタン
+            document.getElementById('stop-button').addEventListener('click', function() {
+                isRunning = false;
+                this.disabled = true;
+                document.getElementById('start-button').disabled = false;
+            });
+            
+            // リセットボタン
+            document.getElementById('reset-button').addEventListener('click', function() {
+                resetSimulation();
+            });
+            
+            // 反応進行度スライダー
+            document.getElementById('reaction-progress').addEventListener('input', function() {
+                progress = parseInt(this.value);
+                
+                // プログレスバーの更新
+                document.getElementById('progress-track').style.width = `${progress}%`;
+                document.getElementById('progress-value').textContent = `${progress}%`;
+                
+                // マーカーの更新
+                updateMarkers();
+                
+                // エネルギーチャートの更新
+                updateEnergyChartProgress();
+                
+                // ステージ表示の更新
+                updateStageIndicator();
+                
+                // 反応ステップの説明更新
+                updateReactionStepDescription();
+            });
+            
+            // アニメーション速度スライダー
+            document.getElementById('animation-speed').addEventListener('input', function() {
+                animationSpeed = parseInt(this.value);
+                
+                // プログレスバーの更新
+                document.getElementById('speed-track').style.width = `${(animationSpeed / 5) * 100}%`;
+                
+                // 速度表示の更新
+                const speedLabels = ['極遅', '遅い', '中', '速い', '極速'];
+                document.getElementById('speed-value').textContent = speedLabels[animationSpeed - 1];
+            });
+            
+            // 表示オプションのトグル
+            document.querySelectorAll('.option-toggle').forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    const checkbox = this.querySelector('.toggle-checkbox');
+                    checkbox.checked = !checkbox.checked;
+                    
+                    // クラスの切り替え
+                    if (checkbox.checked) {
+                        this.classList.add('active');
+                    } else {
+                        this.classList.remove('active');
+                    }
+                    
+                    // 表示オプションの更新
+                    updateDisplayOptions();
+                });
+            });
+            
+            // ポップアップの閉じるボタン
+            document.getElementById('popup-close').addEventListener('click', function() {
+                document.getElementById('info-popup').style.display = 'none';
+            });
+        }
+        
+        // 表示オプションの更新
+        function updateDisplayOptions() {
+            displayOptions.showLabels = document.getElementById('show-labels').checked;
+            displayOptions.showBonds = document.getElementById('show-bonds').checked;
+            displayOptions.showElectrons = document.getElementById('show-electrons').checked;
+            displayOptions.showEnergy = document.getElementById('show-energy').checked;
+        }
+        
+        // 情報ポップアップの表示
+        function showInfoPopup(title, content, x, y) {
+            const popup = document.getElementById('info-popup');
+            
+            // ポップアップの内容を設定
+            document.getElementById('popup-title').textContent = title;
+            document.getElementById('popup-content').textContent = content;
+            
+            // ポップアップの位置を設定
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y}px`;
+            
+            // ポップアップを表示
+            popup.style.display = 'block';
+            
+            // 自動的に閉じるタイマーをセット
+            clearTimeout(popupTimeout);
+            popupTimeout = setTimeout(() => {
+                popup.style.display = 'none';
+            }, 5000); // 5秒後に閉じる
+        }
+    </script>
+</body>
+</html>
