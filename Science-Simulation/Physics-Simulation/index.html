@@ -1,0 +1,1842 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物理シミュレーションアプリケーション</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: linear-gradient(135deg, #3a7bd5, #00d2ff);
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .simulation-select {
+            flex: 1 1 100%;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .sim-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .sim-button {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px;
+            background-color: #3a7bd5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 16px;
+        }
+        
+        .sim-button:hover {
+            background-color: #2c5e9e;
+        }
+        
+        .sim-button.active {
+            background-color: #1e4173;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .simulation-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .canvas-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .simulation-controls {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .control-button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .control-button:hover {
+            background-color: #3e8e41;
+        }
+        
+        .control-button.stop {
+            background-color: #f44336;
+        }
+        
+        .control-button.stop:hover {
+            background-color: #d32f2f;
+        }
+        
+        .control-button.reset {
+            background-color: #ff9800;
+        }
+        
+        .control-button.reset:hover {
+            background-color: #f57c00;
+        }
+        
+        .parameters {
+            margin-top: 15px;
+        }
+        
+        .parameter-group {
+            margin-bottom: 15px;
+        }
+        
+        h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #1e4173;
+        }
+        
+        .parameter-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .parameter-label {
+            width: 120px;
+            font-size: 14px;
+        }
+        
+        .parameter-value {
+            width: 50px;
+            text-align: right;
+            margin: 0 10px;
+            font-size: 14px;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+        }
+        
+        .data-container {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .data-display {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .data-label {
+            font-weight: bold;
+        }
+        
+        .chart-container {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            height: 300px;
+        }
+        
+        .mobile-controls {
+            display: none;
+        }
+        
+        .diagram {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 10;
+        }
+        
+        .time-display {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 10;
+        }
+        
+        .info-panel {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .mobile-controls {
+                display: flex;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background-color: white;
+                padding: 10px;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+                z-index: 100;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>物理シミュレーションアプリケーション</h1>
+            <p>さまざまな物理現象を視覚的に学ぶためのインタラクティブシミュレーター</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="simulation-select">
+                <h2>シミュレーションを選択</h2>
+                <div class="sim-buttons">
+                    <button class="sim-button active" data-sim="pendulum">単振り子</button>
+                    <button class="sim-button" data-sim="projectile">弾道運動</button>
+                    <button class="sim-button" data-sim="collision">弾性衝突</button>
+                    <button class="sim-button" data-sim="spring">ばね運動</button>
+                </div>
+            </div>
+            
+            <div class="simulation-container">
+                <div class="canvas-container" id="canvas-container">
+                    <div class="diagram" id="diagram"></div>
+                    <div class="time-display" id="time-display">時間: 0.0s</div>
+                </div>
+                
+                <div class="simulation-controls">
+                    <div class="control-buttons">
+                        <button class="control-button start" id="start-button">開始</button>
+                        <button class="control-button stop" id="stop-button" disabled>停止</button>
+                        <button class="control-button reset" id="reset-button">リセット</button>
+                    </div>
+                    
+                    <!-- 単振り子のパラメータ -->
+                    <div class="parameters" id="pendulum-params">
+                        <h3>振り子のパラメータ</h3>
+                        <div class="parameter-group">
+                            <div class="parameter-row">
+                                <span class="parameter-label">紐の長さ (m)</span>
+                                <input type="range" id="pendulum-length" min="0.5" max="2.5" step="0.1" value="1.5">
+                                <span class="parameter-value" id="pendulum-length-value">1.5</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">質量 (kg)</span>
+                                <input type="range" id="pendulum-mass" min="0.1" max="2" step="0.1" value="1">
+                                <span class="parameter-value" id="pendulum-mass-value">1.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">初期角度 (度)</span>
+                                <input type="range" id="pendulum-angle" min="5" max="85" step="5" value="45">
+                                <span class="parameter-value" id="pendulum-angle-value">45</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">空気抵抗</span>
+                                <input type="range" id="pendulum-damping" min="0" max="0.1" step="0.005" value="0.01">
+                                <span class="parameter-value" id="pendulum-damping-value">0.01</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">重力加速度 (m/s²)</span>
+                                <input type="range" id="pendulum-gravity" min="1" max="20" step="0.5" value="9.8">
+                                <span class="parameter-value" id="pendulum-gravity-value">9.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 弾道運動のパラメータ -->
+                    <div class="parameters" id="projectile-params" style="display: none;">
+                        <h3>弾道運動のパラメータ</h3>
+                        <div class="parameter-group">
+                            <div class="parameter-row">
+                                <span class="parameter-label">初速度 (m/s)</span>
+                                <input type="range" id="projectile-velocity" min="5" max="30" step="1" value="20">
+                                <span class="parameter-value" id="projectile-velocity-value">20</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">発射角度 (度)</span>
+                                <input type="range" id="projectile-angle" min="10" max="80" step="1" value="45">
+                                <span class="parameter-value" id="projectile-angle-value">45</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">質量 (kg)</span>
+                                <input type="range" id="projectile-mass" min="0.1" max="5" step="0.1" value="1">
+                                <span class="parameter-value" id="projectile-mass-value">1.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">空気抵抗係数</span>
+                                <input type="range" id="projectile-drag" min="0" max="0.1" step="0.001" value="0.01">
+                                <span class="parameter-value" id="projectile-drag-value">0.01</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">重力加速度 (m/s²)</span>
+                                <input type="range" id="projectile-gravity" min="1" max="20" step="0.5" value="9.8">
+                                <span class="parameter-value" id="projectile-gravity-value">9.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 弾性衝突のパラメータ -->
+                    <div class="parameters" id="collision-params" style="display: none;">
+                        <h3>弾性衝突のパラメータ</h3>
+                        <div class="parameter-group">
+                            <div class="parameter-row">
+                                <span class="parameter-label">物体1の質量 (kg)</span>
+                                <input type="range" id="collision-mass1" min="0.5" max="10" step="0.5" value="1">
+                                <span class="parameter-value" id="collision-mass1-value">1.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">物体1の初速度 (m/s)</span>
+                                <input type="range" id="collision-velocity1" min="-10" max="10" step="0.5" value="5">
+                                <span class="parameter-value" id="collision-velocity1-value">5.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">物体2の質量 (kg)</span>
+                                <input type="range" id="collision-mass2" min="0.5" max="10" step="0.5" value="2">
+                                <span class="parameter-value" id="collision-mass2-value">2.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">物体2の初速度 (m/s)</span>
+                                <input type="range" id="collision-velocity2" min="-10" max="10" step="0.5" value="-2">
+                                <span class="parameter-value" id="collision-velocity2-value">-2.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">反発係数</span>
+                                <input type="range" id="collision-restitution" min="0" max="1" step="0.05" value="1">
+                                <span class="parameter-value" id="collision-restitution-value">1.00</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">摩擦係数</span>
+                                <input type="range" id="collision-friction" min="0" max="0.5" step="0.01" value="0">
+                                <span class="parameter-value" id="collision-friction-value">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ばね運動のパラメータ -->
+                    <div class="parameters" id="spring-params" style="display: none;">
+                        <h3>ばね運動のパラメータ</h3>
+                        <div class="parameter-group">
+                            <div class="parameter-row">
+                                <span class="parameter-label">質量 (kg)</span>
+                                <input type="range" id="spring-mass" min="0.1" max="5" step="0.1" value="1">
+                                <span class="parameter-value" id="spring-mass-value">1.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">ばね定数 (N/m)</span>
+                                <input type="range" id="spring-constant" min="1" max="20" step="0.5" value="5">
+                                <span class="parameter-value" id="spring-constant-value">5.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">初期変位 (m)</span>
+                                <input type="range" id="spring-displacement" min="0.1" max="2" step="0.1" value="1">
+                                <span class="parameter-value" id="spring-displacement-value">1.0</span>
+                            </div>
+                            <div class="parameter-row">
+                                <span class="parameter-label">減衰係数</span>
+                                <input type="range" id="spring-damping" min="0" max="1" step="0.05" value="0.1">
+                                <span class="parameter-value" id="spring-damping-value">0.10</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-panel" id="info-panel">
+                        <!-- シミュレーションの説明文が動的に入ります -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-container">
+                <div class="data-display">
+                    <h3>測定値</h3>
+                    <div id="data-values">
+                        <!-- データが動的に入ります -->
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="data-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // グローバル変数
+        let canvas;
+        let currentSimulation = 'pendulum';
+        let isRunning = false;
+        let time = 0;
+        let timeStep = 0.02; // 20ミリ秒
+        let chart;
+        let dataHistory = [];
+        let maxDataPoints = 100;
+        
+        // 各シミュレーションの状態
+        let pendulumState = {
+            length: 1.5,
+            mass: 1.0,
+            angle: 45,
+            angularVelocity: 0,
+            damping: 0.01,
+            gravity: 9.8
+        };
+        
+        let projectileState = {
+            x: 0,
+            y: 0,
+            velocity: 20,
+            angle: 45,
+            vx: 0,
+            vy: 0,
+            mass: 1.0,
+            drag: 0.01,
+            gravity: 9.8,
+            trail: [],
+            maxTrailPoints: 50,
+            isLaunched: false
+        };
+        
+        let collisionState = {
+            mass1: 1.0,
+            velocity1: 5.0,
+            x1: 0,
+            mass2: 2.0,
+            velocity2: -2.0,
+            x2: 0,
+            restitution: 1.0,
+            friction: 0.0,
+            hasCollided: false
+        };
+        
+        let springState = {
+            mass: 1.0,
+            k: 5.0, // ばね定数
+            displacement: 1.0, // 初期変位
+            velocity: 0,
+            damping: 0.1,
+            equilibrium: 0
+        };
+        
+        // p5.js setup関数
+        function setup() {
+            const canvasContainer = document.getElementById('canvas-container');
+            canvas = createCanvas(canvasContainer.offsetWidth, 400);
+            canvas.parent(canvasContainer);
+            
+            // イベントリスナーのセットアップ
+            setupEventListeners();
+            
+            // 初期状態の設定
+            resetSimulation();
+            
+            // 初期状態のグラフの設定
+            setupChart();
+            
+            // 初期情報パネルの更新
+            updateInfoPanel();
+        }
+        
+        // p5.js draw関数
+        function draw() {
+            background(240);
+            
+            // 経過時間の表示更新
+            document.getElementById('time-display').textContent = `時間: ${time.toFixed(1)}s`;
+            
+            // シミュレーションの実行
+            if (isRunning) {
+                time += timeStep;
+                
+                switch (currentSimulation) {
+                    case 'pendulum':
+                        updatePendulum();
+                        break;
+                    case 'projectile':
+                        updateProjectile();
+                        break;
+                    case 'collision':
+                        updateCollision();
+                        break;
+                    case 'spring':
+                        updateSpring();
+                        break;
+                }
+                
+                // データの記録と表示の更新
+                recordData();
+                updateDataDisplay();
+                updateChart();
+            }
+            
+            // シミュレーションの描画
+            switch (currentSimulation) {
+                case 'pendulum':
+                    drawPendulum();
+                    break;
+                case 'projectile':
+                    drawProjectile();
+                    break;
+                case 'collision':
+                    drawCollision();
+                    break;
+                case 'spring':
+                    drawSpring();
+                    break;
+            }
+        }
+        
+        // 単振り子の更新
+        function updatePendulum() {
+            // 運動方程式: d²θ/dt² = -(g/L)sinθ - b(dθ/dt)
+            // 角加速度の計算
+            const angularAcceleration = -(pendulumState.gravity / pendulumState.length) * 
+                                      Math.sin(radians(pendulumState.angle)) - 
+                                      pendulumState.damping * pendulumState.angularVelocity;
+            
+            // 角速度の更新 (オイラー法)
+            pendulumState.angularVelocity += angularAcceleration * timeStep;
+            
+            // 角度の更新
+            pendulumState.angle += degrees(pendulumState.angularVelocity * timeStep);
+            
+            // 角度を-180〜180の範囲に正規化
+            pendulumState.angle = ((pendulumState.angle % 360) + 360) % 360;
+            if (pendulumState.angle > 180) pendulumState.angle -= 360;
+        }
+        
+        // 単振り子の描画
+        function drawPendulum() {
+            // 座標変換のための定数
+            const centerX = width / 2;
+            const centerY = height / 4;
+            const scale = 100; // ピクセル/メートル
+            
+            // 背景の格子
+            drawGrid();
+            
+            // 支点
+            fill(100);
+            stroke(0);
+            strokeWeight(2);
+            ellipse(centerX, centerY, 10, 10);
+            
+            // 振り子の紐
+            const pendulumX = centerX + pendulumState.length * scale * sin(radians(pendulumState.angle));
+            const pendulumY = centerY + pendulumState.length * scale * cos(radians(pendulumState.angle));
+            
+            stroke(0);
+            strokeWeight(2);
+            line(centerX, centerY, pendulumX, pendulumY);
+            
+            // 振り子の重り
+            const weightSize = map(pendulumState.mass, 0.1, 2, 20, 40);
+            fill(50, 100, 200);
+            stroke(0);
+            strokeWeight(1);
+            ellipse(pendulumX, pendulumY, weightSize, weightSize);
+            
+            // 角度の弧を描画
+            noFill();
+            stroke(255, 0, 0, 150);
+            strokeWeight(2);
+            const arcRadius = 40;
+            arc(centerX, centerY, arcRadius*2, arcRadius*2, 
+                radians(-90), radians(-90 + pendulumState.angle));
+            
+            // 角度のラベル
+            fill(255, 0, 0);
+            noStroke();
+            textSize(14);
+            textAlign(CENTER);
+            text(`${abs(pendulumState.angle).toFixed(1)}°`, 
+                 centerX + arcRadius * sin(radians(pendulumState.angle/2 - 90)), 
+                 centerY + arcRadius * cos(radians(pendulumState.angle/2 - 90)));
+            
+            // 物理量の図示
+            drawPendulumForces(pendulumX, pendulumY, centerX, centerY);
+            
+            // 図の説明
+            updateDiagram('単振り子: 質量のある物体が、支点から距離Lの紐によって吊るされています。');
+        }
+        
+        // 単振り子の力の描画
+        function drawPendulumForces(pendulumX, pendulumY, centerX, centerY) {
+            // 重力
+            stroke(0, 150, 0);
+            strokeWeight(3);
+            const gravityLength = pendulumState.mass * 15;
+            drawArrow(pendulumX, pendulumY, pendulumX, pendulumY + gravityLength, 'mg');
+            
+            // 張力 (紐の方向)
+            stroke(150, 0, 150);
+            const angle = atan2(centerY - pendulumY, centerX - pendulumX);
+            const tensionMagnitude = pendulumState.mass * pendulumState.gravity * cos(radians(pendulumState.angle)) + 
+                                   pendulumState.mass * pendulumState.length * pow(pendulumState.angularVelocity, 2);
+            const tensionLength = map(tensionMagnitude, 0, 10, 0, 30);
+            drawArrow(pendulumX, pendulumY, 
+                    pendulumX + tensionLength * cos(angle), 
+                    pendulumY + tensionLength * sin(angle), 'T');
+        }
+        
+        // 弾道運動の更新
+        function updateProjectile() {
+            if (!projectileState.isLaunched) {
+                // 初速度をx,y成分に分解
+                const angleRad = radians(projectileState.angle);
+                projectileState.vx = projectileState.velocity * cos(angleRad);
+                projectileState.vy = -projectileState.velocity * sin(angleRad); // y軸は下向きが正
+                projectileState.isLaunched = true;
+                projectileState.x = 0;
+                projectileState.y = 0;
+                projectileState.trail = [];
+            }
+            
+            // 空気抵抗
+            const speed = sqrt(projectileState.vx * projectileState.vx + projectileState.vy * projectileState.vy);
+            const dragForceX = -projectileState.drag * speed * projectileState.vx;
+            const dragForceY = -projectileState.drag * speed * projectileState.vy;
+            
+            // 加速度の計算
+            const ax = dragForceX / projectileState.mass;
+            const ay = projectileState.gravity + dragForceY / projectileState.mass;
+            
+            // 速度の更新 (オイラー法)
+            projectileState.vx += ax * timeStep;
+            projectileState.vy += ay * timeStep;
+            
+            // 位置の更新
+            projectileState.x += projectileState.vx * timeStep;
+            projectileState.y += projectileState.vy * timeStep;
+            
+            // 軌跡の記録
+            if (frameCount % 3 === 0) {
+                projectileState.trail.push({x: projectileState.x, y: projectileState.y});
+                if (projectileState.trail.length > projectileState.maxTrailPoints) {
+                    projectileState.trail.shift();
+                }
+            }
+            
+            // 地面に衝突した場合はシミュレーションを停止
+            const groundY = 8; // 適当な地面の高さ
+            if (projectileState.y > groundY) {
+                isRunning = false;
+                document.getElementById('start-button').disabled = false;
+                document.getElementById('stop-button').disabled = true;
+            }
+        }
+        
+        // 弾道運動の描画
+        function drawProjectile() {
+            // 座標変換のための定数
+            const scale = 30; // ピクセル/メートル
+            const originX = 50;
+            const originY = height - 50;
+            
+            // 背景の格子
+            drawGrid();
+            
+            // 地面
+            stroke(0);
+            strokeWeight(2);
+            line(0, originY, width, originY);
+            
+            // 発射装置の描画
+            fill(100);
+            stroke(0);
+            strokeWeight(1);
+            rect(originX - 15, originY - 10, 30, 10);
+            
+            // 発射角度のライン
+            if (!projectileState.isLaunched) {
+                const angleRad = radians(projectileState.angle);
+                const lineLength = 50;
+                stroke(255, 0, 0);
+                strokeWeight(2);
+                line(originX, originY - 5, 
+                    originX + lineLength * cos(angleRad), 
+                    originY - 5 - lineLength * sin(angleRad));
+                
+                // 角度の弧
+                noFill();
+                stroke(255, 0, 0, 150);
+                const arcRadius = 30;
+                arc(originX, originY - 5, arcRadius*2, arcRadius*2, -PI, -PI + angleRad);
+                
+                // 角度のラベル
+                fill(255, 0, 0);
+                noStroke();
+                textSize(14);
+                textAlign(CENTER);
+                text(`${projectileState.angle}°`, 
+                    originX + arcRadius * cos(-PI + angleRad/2), 
+                    originY - 5 + arcRadius * sin(-PI + angleRad/2));
+            }
+            
+            // 軌跡の描画
+            stroke(100, 100, 255, 150);
+            strokeWeight(2);
+            noFill();
+            beginShape();
+            for (const point of projectileState.trail) {
+                const screenX = originX + point.x * scale;
+                const screenY = originY - point.y * scale;
+                vertex(screenX, screenY);
+            }
+            endShape();
+            
+            // 物体の描画
+            const projectileSize = map(projectileState.mass, 0.1, 5, 10, 30);
+            const screenX = originX + projectileState.x * scale;
+            const screenY = originY - projectileState.y * scale;
+            
+            fill(255, 50, 50);
+            stroke(0);
+            strokeWeight(1);
+            ellipse(screenX, screenY, projectileSize, projectileSize);
+            
+            // ベクトルの描画
+            if (projectileState.isLaunched) {
+                // 速度ベクトル
+                const vScale = 3;
+                stroke(0, 0, 255);
+                strokeWeight(2);
+                drawArrow(screenX, screenY, 
+                        screenX + projectileState.vx * vScale, 
+                        screenY - projectileState.vy * vScale, 'v');
+                
+                // 重力ベクトル
+                stroke(0, 150, 0);
+                const gScale = 3;
+                drawArrow(screenX, screenY, 
+                        screenX, 
+                        screenY + projectileState.gravity * gScale, 'g');
+                
+                // 空気抵抗ベクトル (速度と逆向き)
+                if (projectileState.drag > 0) {
+                    const speed = sqrt(projectileState.vx * projectileState.vx + projectileState.vy * projectileState.vy);
+                    const dragMagnitude = projectileState.drag * speed * speed;
+                    const dragScale = map(dragMagnitude, 0, 10, 0, 20);
+                    stroke(255, 150, 0);
+                    drawArrow(screenX, screenY, 
+                            screenX - projectileState.vx / speed * dragScale, 
+                            screenY + projectileState.vy / speed * dragScale, 'D');
+                }
+            }
+            
+            // 図の説明
+            updateDiagram('弾道運動: 物体が初速度を持って斜め上方に発射され、重力と空気抵抗の影響下で放物線を描きます。');
+        }
+        
+        // 弾性衝突の更新
+        function updateCollision() {
+            // 物体の位置を更新
+            collisionState.x1 += collisionState.velocity1 * timeStep;
+            collisionState.x2 += collisionState.velocity2 * timeStep;
+            
+            // 衝突判定
+            const radius1 = map(collisionState.mass1, 0.5, 10, 15, 40) / 2;
+            const radius2 = map(collisionState.mass2, 0.5, 10, 15, 40) / 2;
+            const distance = abs(collisionState.x2 - collisionState.x1);
+            
+            if (distance <= radius1 + radius2 && !collisionState.hasCollided) {
+                // 衝突時の速度計算
+                const e = collisionState.restitution; // 反発係数
+                const m1 = collisionState.mass1;
+                const m2 = collisionState.mass2;
+                const v1 = collisionState.velocity1;
+                const v2 = collisionState.velocity2;
+                
+                // 衝突後の速度
+                const v1After = (e*m2*(v2-v1) + m1*v1 + m2*v2) / (m1 + m2);
+                const v2After = (e*m1*(v1-v2) + m1*v1 + m2*v2) / (m1 + m2);
+                
+                collisionState.velocity1 = v1After;
+                collisionState.velocity2 = v2After;
+                
+                // 摩擦の影響
+                if (collisionState.friction > 0) {
+                    const frictionFactor = 1 - collisionState.friction;
+                    collisionState.velocity1 *= frictionFactor;
+                    collisionState.velocity2 *= frictionFactor;
+                }
+                
+                collisionState.hasCollided = true;
+            } else if (distance > radius1 + radius2 + 10) {
+                collisionState.hasCollided = false;
+            }
+            
+            // 画面端での反射
+            const borderMargin = 50;
+            if (collisionState.x1 < borderMargin || collisionState.x1 > width - borderMargin) {
+                collisionState.velocity1 *= -0.95; // 少しエネルギーロス
+                collisionState.x1 = constrain(collisionState.x1, borderMargin, width - borderMargin);
+            }
+            
+            if (collisionState.x2 < borderMargin || collisionState.x2 > width - borderMargin) {
+                collisionState.velocity2 *= -0.95; // 少しエネルギーロス
+                collisionState.x2 = constrain(collisionState.x2, borderMargin, width - borderMargin);
+            }
+        }
+        
+        // 弾性衝突の描画
+        function drawCollision() {
+            // 背景の描画
+            drawGrid();
+            
+            // 物体の半径計算
+            const radius1 = map(collisionState.mass1, 0.5, 10, 15, 40) / 2;
+            const radius2 = map(collisionState.mass2, 0.5, 10, 15, 40) / 2;
+            
+            // 初期位置の計算
+            if (time === 0) {
+                if (collisionState.velocity1 >= 0 && collisionState.velocity2 <= 0) {
+                    // 互いに近づく場合
+                    collisionState.x1 = width / 3;
+                    collisionState.x2 = width * 2 / 3;
+                } else if (collisionState.velocity1 >= 0 && collisionState.velocity2 >= 0) {
+                    // 両方右向きの場合
+                    collisionState.x1 = width / 4;
+                    collisionState.x2 = width / 2;
+                } else if (collisionState.velocity1 <= 0 && collisionState.velocity2 <= 0) {
+                    // 両方左向きの場合
+                    collisionState.x1 = width * 3 / 4;
+                    collisionState.x2 = width / 2;
+                } else {
+                    // その他のケース
+                    collisionState.x1 = width / 3;
+                    collisionState.x2 = width * 2 / 3;
+                }
+            }
+            
+            // 地面の描画
+            stroke(0);
+            strokeWeight(2);
+            line(0, height / 2 + 50, width, height / 2 + 50);
+            
+            // 物体1の描画
+            fill(50, 100, 200);
+            stroke(0);
+            strokeWeight(1);
+            ellipse(collisionState.x1, height / 2, radius1 * 2, radius1 * 2);
+            
+            // 物体2の描画
+            fill(200, 100, 50);
+            stroke(0);
+            strokeWeight(1);
+            ellipse(collisionState.x2, height / 2, radius2 * 2, radius2 * 2);
+            
+            // 速度ベクトルの描画
+            const vScale = 10;
+            stroke(0, 0, 255);
+            strokeWeight(2);
+            drawArrow(collisionState.x1, height / 2, 
+                    collisionState.x1 + collisionState.velocity1 * vScale, 
+                    height / 2, 'v₁');
+            
+            drawArrow(collisionState.x2, height / 2, 
+                    collisionState.x2 + collisionState.velocity2 * vScale, 
+                    height / 2, 'v₂');
+                    
+            // 質量ラベル
+            fill(0);
+            noStroke();
+            textSize(14);
+            textAlign(CENTER);
+            text(`m₁: ${collisionState.mass1.toFixed(1)} kg`, collisionState.x1, height / 2 - radius1 - 10);
+            text(`m₂: ${collisionState.mass2.toFixed(1)} kg`, collisionState.x2, height / 2 - radius2 - 10);
+            
+            // 図の説明
+            updateDiagram('弾性衝突: 2つの物体が衝突すると、運動量は保存され、エネルギーは反発係数に応じて吸収されます。');
+        }
+        
+        // ばね運動の更新
+        function updateSpring() {
+            // 運動方程式: m(d²x/dt²) = -kx - b(dx/dt)
+            // ばねによる力
+            const springForce = -springState.k * springState.displacement;
+            
+            // 減衰力
+            const dampingForce = -springState.damping * springState.velocity;
+            
+            // 加速度の計算
+            const acceleration = (springForce + dampingForce) / springState.mass;
+            
+            // 速度と位置の更新 (オイラー法)
+            springState.velocity += acceleration * timeStep;
+            springState.displacement += springState.velocity * timeStep;
+        }
+        
+        // ばね運動の描画
+        function drawSpring() {
+            // 背景の描画
+            drawGrid();
+            
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const scale = 100; // ピクセル/メートル
+            
+            // 固定壁
+            fill(150);
+            stroke(0);
+            strokeWeight(2);
+            rect(50, centerY - 40, 20, 80);
+            
+            // 物体の位置
+            const objectX = centerX + springState.displacement * scale;
+            const objectY = centerY;
+            const objectSize = map(springState.mass, 0.1, 5, 30, 60);
+            
+            // ばねの描画
+            drawSpringShape(70, centerY, objectX - objectSize / 2, objectY);
+            
+            // 物体の描画
+            fill(50, 150, 200);
+            stroke(0);
+            strokeWeight(1);
+            rect(objectX - objectSize / 2, objectY - objectSize / 2, objectSize, objectSize);
+            
+            // 平衡位置の表示
+            stroke(255, 0, 0, 150);
+            strokeWeight(1);
+            line(centerX, centerY - 50, centerX, centerY + 50);
+            
+            // 変位の表示
+            stroke(0, 150, 0);
+            strokeWeight(2);
+            line(centerX, centerY + 60, objectX, centerY + 60);
+            line(centerX, centerY + 55, centerX, centerY + 65);
+            line(objectX, centerY + 55, objectX, centerY + 65);
+            
+            fill(0, 150, 0);
+            noStroke();
+            textSize(14);
+            textAlign(CENTER);
+            text(`${abs(springState.displacement).toFixed(2)} m`, (centerX + objectX) / 2, centerY + 50);
+            
+            // 力の描画
+            if (springState.displacement !== 0) {
+                // ばねの力
+                const springForce = -springState.k * springState.displacement;
+                const forceScale = map(abs(springForce), 0, 10, 0, 30);
+                const forceDirection = springForce < 0 ? -1 : 1;
+                
+                stroke(255, 0, 0);
+                strokeWeight(2);
+                drawArrow(objectX, objectY - 20, 
+                        objectX + forceScale * forceDirection, 
+                        objectY - 20, 'Fs');
+                
+                // 減衰力
+                if (springState.velocity !== 0 && springState.damping > 0) {
+                    const dampingForce = -springState.damping * springState.velocity;
+                    const dampingScale = map(abs(dampingForce), 0, 2, 0, 20);
+                    const dampingDirection = dampingForce < 0 ? -1 : 1;
+                    
+                    stroke(255, 150, 0);
+                    drawArrow(objectX, objectY - 40, 
+                            objectX + dampingScale * dampingDirection, 
+                            objectY - 40, 'Fd');
+                }
+            }
+            
+            // 図の説明
+            updateDiagram('ばね運動: 物体がばねにつながれ、フックの法則に従って運動します。減衰がある場合は振動が徐々に減衰します。');
+        }
+        
+        // データの記録
+        function recordData() {
+            let dataPoint = { time };
+            
+            switch (currentSimulation) {
+                case 'pendulum':
+                    const pendulumPE = pendulumState.mass * pendulumState.gravity * pendulumState.length * (1 - cos(radians(pendulumState.angle)));
+                    const pendulumKE = 0.5 * pendulumState.mass * pendulumState.length * pendulumState.length * pendulumState.angularVelocity * pendulumState.angularVelocity;
+                    
+                    dataPoint.angle = pendulumState.angle;
+                    dataPoint.angularVelocity = pendulumState.angularVelocity;
+                    dataPoint.potentialEnergy = pendulumPE;
+                    dataPoint.kineticEnergy = pendulumKE;
+                    dataPoint.totalEnergy = pendulumPE + pendulumKE;
+                    break;
+                    
+                case 'projectile':
+                    const projectilePE = projectileState.mass * projectileState.gravity * projectileState.y;
+                    const projectileKE = 0.5 * projectileState.mass * (projectileState.vx * projectileState.vx + projectileState.vy * projectileState.vy);
+                    
+                    dataPoint.x = projectileState.x;
+                    dataPoint.y = projectileState.y;
+                    dataPoint.vx = projectileState.vx;
+                    dataPoint.vy = projectileState.vy;
+                    dataPoint.speed = sqrt(projectileState.vx * projectileState.vx + projectileState.vy * projectileState.vy);
+                    dataPoint.potentialEnergy = projectilePE;
+                    dataPoint.kineticEnergy = projectileKE;
+                    dataPoint.totalEnergy = projectilePE + projectileKE;
+                    break;
+                    
+                case 'collision':
+                    const collisionKE1 = 0.5 * collisionState.mass1 * collisionState.velocity1 * collisionState.velocity1;
+                    const collisionKE2 = 0.5 * collisionState.mass2 * collisionState.velocity2 * collisionState.velocity2;
+                    
+                    dataPoint.velocity1 = collisionState.velocity1;
+                    dataPoint.velocity2 = collisionState.velocity2;
+                    dataPoint.momentum1 = collisionState.mass1 * collisionState.velocity1;
+                    dataPoint.momentum2 = collisionState.mass2 * collisionState.velocity2;
+                    dataPoint.totalMomentum = dataPoint.momentum1 + dataPoint.momentum2;
+                    dataPoint.kineticEnergy1 = collisionKE1;
+                    dataPoint.kineticEnergy2 = collisionKE2;
+                    dataPoint.totalEnergy = collisionKE1 + collisionKE2;
+                    break;
+                    
+                case 'spring':
+                    const springPE = 0.5 * springState.k * springState.displacement * springState.displacement;
+                    const springKE = 0.5 * springState.mass * springState.velocity * springState.velocity;
+                    
+                    dataPoint.displacement = springState.displacement;
+                    dataPoint.velocity = springState.velocity;
+                    dataPoint.acceleration = -springState.k * springState.displacement / springState.mass - springState.damping * springState.velocity / springState.mass;
+                    dataPoint.potentialEnergy = springPE;
+                    dataPoint.kineticEnergy = springKE;
+                    dataPoint.totalEnergy = springPE + springKE;
+                    break;
+            }
+            
+            dataHistory.push(dataPoint);
+            
+            // データ履歴のサイズ制限
+            if (dataHistory.length > maxDataPoints) {
+                dataHistory.shift();
+            }
+        }
+        
+        // データ表示の更新
+        function updateDataDisplay() {
+            const dataContainer = document.getElementById('data-values');
+            let html = '';
+            
+            if (dataHistory.length === 0) return;
+            
+            const latestData = dataHistory[dataHistory.length - 1];
+            
+            switch (currentSimulation) {
+                case 'pendulum':
+                    html += `<div class="data-row">
+                                <span class="data-label">角度:</span>
+                                <span>${latestData.angle.toFixed(2)}°</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">角速度:</span>
+                                <span>${latestData.angularVelocity.toFixed(3)} rad/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">位置エネルギー:</span>
+                                <span>${latestData.potentialEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">運動エネルギー:</span>
+                                <span>${latestData.kineticEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">全エネルギー:</span>
+                                <span>${latestData.totalEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">周期（理論値）:</span>
+                                <span>${(2 * PI * sqrt(pendulumState.length / pendulumState.gravity)).toFixed(3)} s</span>
+                             </div>`;
+                    break;
+                    
+                case 'projectile':
+                    html += `<div class="data-row">
+                                <span class="data-label">位置 X:</span>
+                                <span>${latestData.x.toFixed(2)} m</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">位置 Y:</span>
+                                <span>${latestData.y.toFixed(2)} m</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">速度 X:</span>
+                                <span>${latestData.vx.toFixed(2)} m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">速度 Y:</span>
+                                <span>${latestData.vy.toFixed(2)} m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">速さ:</span>
+                                <span>${latestData.speed.toFixed(2)} m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">位置エネルギー:</span>
+                                <span>${latestData.potentialEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">運動エネルギー:</span>
+                                <span>${latestData.kineticEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">全エネルギー:</span>
+                                <span>${latestData.totalEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    break;
+                    
+                case 'collision':
+                    html += `<div class="data-row">
+                                <span class="data-label">速度 1:</span>
+                                <span>${latestData.velocity1.toFixed(2)} m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">速度 2:</span>
+                                <span>${latestData.velocity2.toFixed(2)} m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">運動量 1:</span>
+                                <span>${latestData.momentum1.toFixed(3)} kg·m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">運動量 2:</span>
+                                <span>${latestData.momentum2.toFixed(3)} kg·m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">全運動量:</span>
+                                <span>${latestData.totalMomentum.toFixed(3)} kg·m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">運動エネルギー 1:</span>
+                                <span>${latestData.kineticEnergy1.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">運動エネルギー 2:</span>
+                                <span>${latestData.kineticEnergy2.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">全運動エネルギー:</span>
+                                <span>${latestData.totalEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    break;
+                    
+                case 'spring':
+                    html += `<div class="data-row">
+                                <span class="data-label">変位:</span>
+                                <span>${latestData.displacement.toFixed(3)} m</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">速度:</span>
+                                <span>${latestData.velocity.toFixed(3)} m/s</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">加速度:</span>
+                                <span>${latestData.acceleration.toFixed(3)} m/s²</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">位置エネルギー:</span>
+                                <span>${latestData.potentialEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">運動エネルギー:</span>
+                                <span>${latestData.kineticEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">全エネルギー:</span>
+                                <span>${latestData.totalEnergy.toFixed(3)} J</span>
+                             </div>`;
+                    html += `<div class="data-row">
+                                <span class="data-label">周期（理論値）:</span>
+                                <span>${(2 * PI * sqrt(springState.mass / springState.k)).toFixed(3)} s</span>
+                             </div>`;
+                    break;
+            }
+            
+            dataContainer.innerHTML = html;
+        }
+        
+        // グラフの初期設定
+        function setupChart() {
+            const ctx = document.getElementById('data-chart').getContext('2d');
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: '時間 (s)'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: '値'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            updateChartDatasets();
+        }
+        
+        // グラフのデータセット更新
+        function updateChartDatasets() {
+            chart.data.datasets = [];
+            
+            switch (currentSimulation) {
+                case 'pendulum':
+                    chart.data.datasets.push({
+                        label: '角度 (°)',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.data.datasets.push({
+                        label: '角速度 (rad/s)',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.options.scales.y.title.text = '角度/角速度';
+                    break;
+                
+                case 'projectile':
+                    chart.data.datasets.push({
+                        label: '位置 X (m)',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.data.datasets.push({
+                        label: '位置 Y (m)',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.options.scales.y.title.text = '位置 (m)';
+                    break;
+                
+                case 'collision':
+                    chart.data.datasets.push({
+                        label: '速度 1 (m/s)',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.data.datasets.push({
+                        label: '速度 2 (m/s)',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.data.datasets.push({
+                        label: '全運動量 (kg·m/s)',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false
+                    });
+                    chart.options.scales.y.title.text = '速度/運動量';
+                    break;
+                
+                case 'spring':
+                    chart.data.datasets.push({
+                        label: '変位 (m)',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.data.datasets.push({
+                        label: '速度 (m/s)',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 2,
+                        fill: false
+                    });
+                    chart.data.datasets.push({
+                        label: '全エネルギー (J)',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false
+                    });
+                    chart.options.scales.y.title.text = '変位/速度/エネルギー';
+                    break;
+            }
+            
+            chart.update();
+        }
+        
+        // グラフの更新
+        function updateChart() {
+            if (dataHistory.length === 0) return;
+            
+            // グラフデータの更新
+            switch (currentSimulation) {
+                case 'pendulum':
+                    chart.data.datasets[0].data = dataHistory.map(d => ({x: d.time, y: d.angle}));
+                    chart.data.datasets[1].data = dataHistory.map(d => ({x: d.time, y: d.angularVelocity}));
+                    break;
+                
+                case 'projectile':
+                    chart.data.datasets[0].data = dataHistory.map(d => ({x: d.time, y: d.x}));
+                    chart.data.datasets[1].data = dataHistory.map(d => ({x: d.time, y: d.y}));
+                    break;
+                
+                case 'collision':
+                    chart.data.datasets[0].data = dataHistory.map(d => ({x: d.time, y: d.velocity1}));
+                    chart.data.datasets[1].data = dataHistory.map(d => ({x: d.time, y: d.velocity2}));
+                    chart.data.datasets[2].data = dataHistory.map(d => ({x: d.time, y: d.totalMomentum}));
+                    break;
+                
+                case 'spring':
+                    chart.data.datasets[0].data = dataHistory.map(d => ({x: d.time, y: d.displacement}));
+                    chart.data.datasets[1].data = dataHistory.map(d => ({x: d.time, y: d.velocity}));
+                    chart.data.datasets[2].data = dataHistory.map(d => ({x: d.time, y: d.totalEnergy}));
+                    break;
+            }
+            
+            chart.update();
+        }
+        
+        // シミュレーションのリセット
+        function resetSimulation() {
+            time = 0;
+            dataHistory = [];
+            
+            switch (currentSimulation) {
+                case 'pendulum':
+                    pendulumState.length = parseFloat(document.getElementById('pendulum-length').value);
+                    pendulumState.mass = parseFloat(document.getElementById('pendulum-mass').value);
+                    pendulumState.angle = parseFloat(document.getElementById('pendulum-angle').value);
+                    pendulumState.angularVelocity = 0;
+                    pendulumState.damping = parseFloat(document.getElementById('pendulum-damping').value);
+                    pendulumState.gravity = parseFloat(document.getElementById('pendulum-gravity').value);
+                    break;
+                
+                case 'projectile':
+                    projectileState.velocity = parseFloat(document.getElementById('projectile-velocity').value);
+                    projectileState.angle = parseFloat(document.getElementById('projectile-angle').value);
+                    projectileState.mass = parseFloat(document.getElementById('projectile-mass').value);
+                    projectileState.drag = parseFloat(document.getElementById('projectile-drag').value);
+                    projectileState.gravity = parseFloat(document.getElementById('projectile-gravity').value);
+                    projectileState.x = 0;
+                    projectileState.y = 0;
+                    projectileState.vx = 0;
+                    projectileState.vy = 0;
+                    projectileState.trail = [];
+                    projectileState.isLaunched = false;
+                    break;
+                
+                case 'collision':
+                    collisionState.mass1 = parseFloat(document.getElementById('collision-mass1').value);
+                    collisionState.velocity1 = parseFloat(document.getElementById('collision-velocity1').value);
+                    collisionState.mass2 = parseFloat(document.getElementById('collision-mass2').value);
+                    collisionState.velocity2 = parseFloat(document.getElementById('collision-velocity2').value);
+                    collisionState.restitution = parseFloat(document.getElementById('collision-restitution').value);
+                    collisionState.friction = parseFloat(document.getElementById('collision-friction').value);
+                    collisionState.x1 = 0;
+                    collisionState.x2 = 0;
+                    collisionState.hasCollided = false;
+                    break;
+                
+                case 'spring':
+                    springState.mass = parseFloat(document.getElementById('spring-mass').value);
+                    springState.k = parseFloat(document.getElementById('spring-constant').value);
+                    springState.displacement = parseFloat(document.getElementById('spring-displacement').value);
+                    springState.velocity = 0;
+                    springState.damping = parseFloat(document.getElementById('spring-damping').value);
+                    break;
+            }
+            
+            // グラフの再設定
+            updateChartDatasets();
+            
+            // データ表示の初期化
+            recordData();
+            updateDataDisplay();
+            updateChart();
+        }
+        
+        // 情報パネルの更新
+        function updateInfoPanel() {
+            const infoPanel = document.getElementById('info-panel');
+            let infoText = '';
+            
+            switch (currentSimulation) {
+                case 'pendulum':
+                    infoText = `
+                        <h3>単振り子について</h3>
+                        <p>単振り子は、一端が固定された紐によって支えられた質点が、重力の影響下で振動する物理系です。</p>
+                        <p><strong>観察ポイント:</strong></p>
+                        <ul>
+                            <li>角度が小さいとき、振動は単振動に近似され、周期は振幅に依存しない。</li>
+                            <li>紐の長さが長いほど周期は長くなる。</li>
+                            <li>重力が大きいほど周期は短くなる。</li>
+                            <li>空気抵抗（減衰）があると、振幅は徐々に小さくなる。</li>
+                        </ul>
+                        <p><strong>理論式:</strong></p>
+                        <p>周期 T = 2π√(L/g)</p>
+                    `;
+                    break;
+                
+                case 'projectile':
+                    infoText = `
+                        <h3>弾道運動について</h3>
+                        <p>弾道運動は、初速度を持って投げ出された物体が、重力と空気抵抗の影響下で描く軌道です。</p>
+                        <p><strong>観察ポイント:</strong></p>
+                        <ul>
+                            <li>空気抵抗がない場合、軌道は完全な放物線となる。</li>
+                            <li>45度で発射すると、空気抵抗がない場合は最大飛距離が得られる。</li>
+                            <li>空気抵抗があると、軌道は非対称になり、最大飛距離を得る角度は45度より小さくなる。</li>
+                            <li>高度が上がるほど位置エネルギーは増加し、運動エネルギーは減少する。</li>
+                        </ul>
+                        <p><strong>理論式（空気抵抗なし）:</strong></p>
+                        <p>最大飛距離 R = v²sin(2θ)/g</p>
+                    `;
+                    break;
+                
+                case 'collision':
+                    infoText = `
+                        <h3>弾性衝突について</h3>
+                        <p>弾性衝突は、2つ以上の物体が衝突し、運動量が保存される現象です。反発係数により、エネルギーの保存度合いが決まります。</p>
+                        <p><strong>観察ポイント:</strong></p>
+                        <ul>
+                            <li>完全弾性衝突（反発係数=1）では、運動エネルギーも保存される。</li>
+                            <li>非弾性衝突（反発係数<1）では、一部のエネルギーが熱などに変換される。</li>
+                            <li>すべての衝突で、運動量は保存される（外力がない場合）。</li>
+                            <li>摩擦があると、運動エネルギーの一部が散逸する。</li>
+                        </ul>
+                        <p><strong>理論式:</strong></p>
+                        <p>衝突後の速度: v1' = ((m1-e·m2)v1 + (1+e)m2·v2)/(m1+m2)</p>
+                        <p>v2' = ((m2-e·m1)v2 + (1+e)m1·v1)/(m1+m2)</p>
+                    `;
+                    break;
+                
+                case 'spring':
+                    infoText = `
+                        <h3>ばね運動について</h3>
+                        <p>ばね運動は、フックの法則に従うばねに接続された物体が振動する現象です。</p>
+                        <p><strong>観察ポイント:</strong></p>
+                        <ul>
+                            <li>減衰がない場合、位置エネルギーと運動エネルギーの間で交換が行われ、全エネルギーは保存される。</li>
+                            <li>減衰がある場合、全エネルギーは徐々に減少し、振動は次第に弱まる。</li>
+                            <li>ばね定数が大きいほど振動数は高くなる。</li>
+                            <li>質量が大きいほど振動数は低くなる。</li>
+                        </ul>
+                        <p><strong>理論式:</strong></p>
+                        <p>周期 T = 2π√(m/k)</p>
+                    `;
+                    break;
+            }
+            
+            infoPanel.innerHTML = infoText;
+        }
+        
+        // イベントリスナーのセットアップ
+        function setupEventListeners() {
+            // シミュレーション選択ボタン
+            document.querySelectorAll('.sim-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const simType = this.getAttribute('data-sim');
+                    
+                    // すでに選択されているボタンなら何もしない
+                    if (simType === currentSimulation) return;
+                    
+                    // ボタンのアクティブ状態を更新
+                    document.querySelectorAll('.sim-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // パラメータパネルの表示切替
+                    document.querySelectorAll('.parameters').forEach(panel => {
+                        panel.style.display = 'none';
+                    });
+                    document.getElementById(`${simType}-params`).style.display = 'block';
+                    
+                    // シミュレーションタイプの更新
+                    currentSimulation = simType;
+                    
+                    // シミュレーションのリセット
+                    isRunning = false;
+                    resetSimulation();
+                    
+                    // ボタン状態の更新
+                    document.getElementById('start-button').disabled = false;
+                    document.getElementById('stop-button').disabled = true;
+                    
+                    // 情報パネルの更新
+                    updateInfoPanel();
+                });
+            });
+            
+            // 開始ボタン
+            document.getElementById('start-button').addEventListener('click', function() {
+                isRunning = true;
+                this.disabled = true;
+                document.getElementById('stop-button').disabled = false;
+            });
+            
+            // 停止ボタン
+            document.getElementById('stop-button').addEventListener('click', function() {
+                isRunning = false;
+                this.disabled = true;
+                document.getElementById('start-button').disabled = false;
+            });
+            
+            // リセットボタン
+            document.getElementById('reset-button').addEventListener('click', function() {
+                isRunning = false;
+                document.getElementById('start-button').disabled = false;
+                document.getElementById('stop-button').disabled = true;
+                resetSimulation();
+            });
+            
+            // パラメータスライダーのイベントリスナー
+            setupParameterListeners();
+        }
+        
+        // パラメータスライダーのイベントリスナー設定
+        function setupParameterListeners() {
+            // 単振り子のパラメータ
+            document.getElementById('pendulum-length').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('pendulum-length-value').textContent = value.toFixed(1);
+                pendulumState.length = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('pendulum-mass').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('pendulum-mass-value').textContent = value.toFixed(1);
+                pendulumState.mass = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('pendulum-angle').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('pendulum-angle-value').textContent = value;
+                pendulumState.angle = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('pendulum-damping').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('pendulum-damping-value').textContent = value.toFixed(2);
+                pendulumState.damping = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('pendulum-gravity').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('pendulum-gravity-value').textContent = value.toFixed(1);
+                pendulumState.gravity = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            // 弾道運動のパラメータ
+            document.getElementById('projectile-velocity').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('projectile-velocity-value').textContent = value;
+                projectileState.velocity = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('projectile-angle').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('projectile-angle-value').textContent = value;
+                projectileState.angle = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('projectile-mass').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('projectile-mass-value').textContent = value.toFixed(1);
+                projectileState.mass = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('projectile-drag').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('projectile-drag-value').textContent = value.toFixed(3);
+                projectileState.drag = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('projectile-gravity').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('projectile-gravity-value').textContent = value.toFixed(1);
+                projectileState.gravity = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            // 弾性衝突のパラメータ
+            document.getElementById('collision-mass1').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('collision-mass1-value').textContent = value.toFixed(1);
+                collisionState.mass1 = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('collision-velocity1').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('collision-velocity1-value').textContent = value.toFixed(1);
+                collisionState.velocity1 = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('collision-mass2').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('collision-mass2-value').textContent = value.toFixed(1);
+                collisionState.mass2 = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('collision-velocity2').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('collision-velocity2-value').textContent = value.toFixed(1);
+                collisionState.velocity2 = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('collision-restitution').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('collision-restitution-value').textContent = value.toFixed(2);
+                collisionState.restitution = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('collision-friction').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('collision-friction-value').textContent = value.toFixed(2);
+                collisionState.friction = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            // ばね運動のパラメータ
+            document.getElementById('spring-mass').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('spring-mass-value').textContent = value.toFixed(1);
+                springState.mass = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('spring-constant').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('spring-constant-value').textContent = value.toFixed(1);
+                springState.k = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('spring-displacement').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('spring-displacement-value').textContent = value.toFixed(1);
+                springState.displacement = value;
+                if (!isRunning) resetSimulation();
+            });
+            
+            document.getElementById('spring-damping').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('spring-damping-value').textContent = value.toFixed(2);
+                springState.damping = value;
+                if (!isRunning) resetSimulation();
+            });
+        }
+        
+        // 背景に格子を描画
+        function drawGrid() {
+            stroke(200);
+            strokeWeight(1);
+            
+            // 水平線
+            for (let y = 0; y <= height; y += 50) {
+                line(0, y, width, y);
+            }
+            
+            // 垂直線
+            for (let x = 0; x <= width; x += 50) {
+                line(x, 0, x, height);
+            }
+        }
+        
+        // 矢印を描画（力、速度などのベクトル表示用）
+        function drawArrow(x1, y1, x2, y2, label) {
+            // 矢印の線
+            line(x1, y1, x2, y2);
+            
+            // 矢印の先端
+            const angle = atan2(y2 - y1, x2 - x1);
+            const arrowSize = 8;
+            
+            beginShape();
+            vertex(x2, y2);
+            vertex(x2 - arrowSize * cos(angle - PI/6), y2 - arrowSize * sin(angle - PI/6));
+            vertex(x2 - arrowSize * cos(angle + PI/6), y2 - arrowSize * sin(angle + PI/6));
+            endShape(CLOSE);
+            
+            // ラベル
+            if (label) {
+                fill(0);
+                noStroke();
+                textSize(14);
+                textAlign(CENTER, CENTER);
+                
+                // ラベルの位置を調整
+                const labelDist = 15;
+                const labelX = x2 + labelDist * cos(angle);
+                const labelY = y2 + labelDist * sin(angle);
+                
+                text(label, labelX, labelY);
+            }
+        }
+        
+        // ばねの形状を描画
+        function drawSpringShape(x1, y1, x2, y2) {
+            const coils = 10; // コイルの数
+            const width = 15; // ばねの幅
+            
+            stroke(100);
+            strokeWeight(2);
+            noFill();
+            
+            beginShape();
+            vertex(x1, y1);
+            
+            const dx = (x2 - x1) / (coils * 2);
+            
+            for (let i = 0; i < coils; i++) {
+                const x = x1 + dx * (i * 2 + 0.5);
+                const y = y1 - width;
+                vertex(x, y);
+                
+                const x2 = x1 + dx * (i * 2 + 1.5);
+                const y2 = y1 + width;
+                vertex(x2, y2);
+            }
+            
+            vertex(x2, y2);
+            endShape();
+        }
+        
+        // 図の説明を更新
+        function updateDiagram(text) {
+            document.getElementById('diagram').textContent = text;
+        }
+    </script>
+</body>
+</html>
