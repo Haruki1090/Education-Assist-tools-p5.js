@@ -8,6 +8,10 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/electron-configuration.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- パフォーマンスヒント -->
+    <link rel="preload" href="js/data/element-data.js" as="script">
+    <link rel="preload" href="js/orbital-viewer.js" as="script">
 </head>
 <body>
     <div class="tech-overlay"></div>
@@ -19,7 +23,7 @@
         <div class="tech-interface-panel">
             <div class="tech-system-logo">
                 <h1 class="tech-system-title">量子電子構造解析システム</h1>
-                <p class="tech-system-subtitle">先端原子構造可視化 v2.0</p>
+                <p class="tech-system-subtitle">先端原子構造可視化 v2.1</p>
             </div>
             
             <!-- テーマ切り替えボタン -->
@@ -32,50 +36,34 @@
             
             <!-- 指示テキスト -->
             <div class="tech-terminal">
-                <p class="tech-terminal-text">
-                    元素を選択して量子電子配置を解析します。3D表示機能で電子軌道の立体構造と量子特性を確認できます。
+                <p class="tech-terminal-text" id="status-message">
+                    システムを初期化中です...
                     <span class="tech-terminal-cursor"></span>
                 </p>
             </div>
             
             <!-- 周期表コンテナ -->
-            <div id="periodic-table" class="tech-periodic-table"></div>
+            <div id="periodic-table" class="tech-periodic-table">
+                <div class="tech-loading">
+                    <i class="fas fa-atom fa-spin"></i>
+                    <p>周期表データを読み込んでいます...</p>
+                    <div class="progress-container">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- 情報パネル -->
         <div class="tech-info-panel">
             <div class="tech-interface-panel" id="element-info-container">
-                <h2 class="tech-section-title">量子データ解析</h2>
+                <h2 class="tech-section-title">元素情報</h2>
                 
                 <!-- 元素情報 -->
                 <div id="element-info" class="tech-element-info">
                     <div class="tech-placeholder">
                         <i class="fas fa-atom"></i>
-                        <p>元素を選択して量子特性を表示</p>
-                    </div>
-                </div>
-                
-                <!-- 拡張情報 -->
-                <div class="tech-section">
-                    <h3 class="tech-section-subtitle">元素量子特性</h3>
-                    <div id="element-extended-data" class="tech-data-section">
-                        <!-- 拡張元素データがここに表示されます -->
-                    </div>
-                </div>
-                
-                <!-- 量子特性データ -->
-                <div class="tech-section">
-                    <h3 class="tech-section-subtitle">量子力学データ</h3>
-                    <div id="element-quantum-data" class="tech-data-section">
-                        <!-- 量子特性データがここに表示されます -->
-                    </div>
-                </div>
-                
-                <!-- 量子特性詳細 -->
-                <div class="tech-section">
-                    <h3 class="tech-section-subtitle">量子特性詳細</h3>
-                    <div id="element-quantum-details" class="tech-quantum-detail">
-                        <!-- 詳細な量子特性データがここに表示されます -->
+                        <p>周期表から元素を選択すると情報が表示されます</p>
                     </div>
                 </div>
             </div>
@@ -93,7 +81,15 @@
         
         <div class="tech-modal-body">
             <!-- ホログラム風3Dビューアー -->
-            <div id="orbital-viewer" class="tech-orbital-viewer"></div>
+            <div id="orbital-viewer" class="tech-orbital-viewer">
+                <div class="tech-loading">
+                    <i class="fas fa-atom fa-spin"></i>
+                    <p>3D電子軌道を初期化中...</p>
+                    <div class="progress-container">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
             
             <!-- コントロール -->
             <div class="tech-controls">
@@ -119,29 +115,79 @@
             <!-- タブコンテンツ -->
             <div id="electron-configuration-tab" class="tech-tab-content active">
                 <div id="electron-configuration" class="tech-electron-config">
-                    <!-- 電子配置情報がここに表示されます -->
+                    <div class="tech-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>電子配置データを読み込んでいます...</p>
+                    </div>
                 </div>
             </div>
             
             <div id="physical-properties-tab" class="tech-tab-content">
                 <div id="physical-properties" class="tech-data-grid">
-                    <!-- 物理特性がここに表示されます -->
+                    <div class="tech-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>物理特性データを読み込んでいます...</p>
+                    </div>
                 </div>
             </div>
             
             <div id="electronic-properties-tab" class="tech-tab-content">
                 <div id="electron-properties" class="tech-data-grid">
-                    <!-- 電子特性がここに表示されます -->
+                    <div class="tech-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>電子特性データを読み込んでいます...</p>
+                    </div>
                 </div>
             </div>
             
             <div id="quantum-properties-tab" class="tech-tab-content">
                 <div id="quantum-properties" class="tech-data-grid">
-                    <!-- 量子特性がここに表示されます -->
+                    <div class="tech-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>量子特性データを読み込んでいます...</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- パフォーマンスモニター (デバッグ用) -->
+    <div id="performance-monitor" style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.5); color: white; padding: 5px; font-size: 10px; z-index: 1000; display: none;">
+        <div>FPS: <span id="fps-counter">0</span></div>
+        <div>メモリ: <span id="memory-usage">0</span> MB</div>
+    </div>
+    
+    <!-- デバッグモード切替 -->
+    <script>
+        // デバッグモードの切替（URLに?debug=trueを付けると有効化）
+        const debugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
+        if (debugMode) {
+            document.getElementById('performance-monitor').style.display = 'block';
+            
+            // FPSカウンター
+            let frameCount = 0;
+            let lastTime = performance.now();
+            
+            function updateFPS() {
+                frameCount++;
+                const now = performance.now();
+                if (now - lastTime >= 1000) {
+                    document.getElementById('fps-counter').textContent = frameCount;
+                    frameCount = 0;
+                    lastTime = now;
+                    
+                    // メモリ使用量（Chrome開発者ツールでのみ動作）
+                    if (window.performance && window.performance.memory) {
+                        const memoryUsage = Math.round(window.performance.memory.usedJSHeapSize / 1048576);
+                        document.getElementById('memory-usage').textContent = memoryUsage;
+                    }
+                }
+                requestAnimationFrame(updateFPS);
+            }
+            
+            requestAnimationFrame(updateFPS);
+        }
+    </script>
     
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
