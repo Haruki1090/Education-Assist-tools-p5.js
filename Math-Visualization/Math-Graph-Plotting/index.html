@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>インタラクティブなグラフ描画ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .graph-container {
+            flex: 1 1 65%;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .canvas-container {
+            width: 100%;
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 14px;
+            z-index: 100;
+            display: none;
+        }
+        
+        .controls {
+            flex: 1 1 30%;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 650px;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        h2 {
+            color: #3498db;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button.active {
+            background-color: #2c3e50;
+        }
+        
+        button.danger {
+            background-color: #e74c3c;
+        }
+        
+        button.danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .parameter-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .parameter-label {
+            width: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .parameter-range {
+            flex: 1;
+            margin-right: 10px;
+        }
+        
+        .parameter-value {
+            width: 50px;
+            text-align: right;
+        }
+        
+        .function-list {
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .function-item {
+            padding: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .function-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .function-item.active {
+            background-color: #e1f5fe;
+            font-weight: bold;
+        }
+        
+        .function-item:last-child {
+            border-bottom: none;
+        }
+        
+        .function-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .function-actions {
+            display: flex;
+        }
+        
+        .function-action {
+            cursor: pointer;
+            margin-left: 10px;
+            color: #777;
+        }
+        
+        .function-action:hover {
+            color: #333;
+        }
+        
+        .color-picker {
+            margin-bottom: 15px;
+        }
+        
+        .range-wrapper {
+            margin-bottom: 15px;
+        }
+        
+        .range-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .range-col {
+            flex: 1;
+        }
+        
+        .info-message {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e1f5fe;
+            border-left: 4px solid #03a9f4;
+            margin-bottom: 15px;
+        }
+        
+        .animation-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .animation-parameter {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .animation-parameter label {
+            margin-right: 10px;
+            margin-bottom: 0;
+        }
+        
+        .graph-options {
+            margin-bottom: 20px;
+        }
+        
+        .option-checkbox {
+            margin-right: 10px;
+        }
+        
+        .color-picker input {
+            width: 30px;
+            height: 30px;
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+        
+        .function-equation {
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        .animation-speed-container {
+            margin-top: 10px;
+        }
+        
+        .visualization-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .responsive-info {
+            display: none;
+            padding: 15px;
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .controls {
+                max-height: none;
+                order: 2;
+            }
+            
+            .graph-container {
+                order: 1;
+            }
+            
+            .responsive-info {
+                display: block;
+            }
+            
+            .canvas-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>インタラクティブなグラフ描画ツール</h1>
+            <p>関数のパラメータを調整して、グラフの変化をリアルタイムで確認しましょう</p>
+        </header>
+        
+        <div class="content">
+            <div class="graph-container">
+                <div class="graph-options">
+                    <button id="toggleGrid" class="active">グリッド表示</button>
+                    <button id="toggleAxes" class="active">軸表示</button>
+                    <button id="toggleLabels" class="active">ラベル表示</button>
+                    <button id="resetView">表示リセット</button>
+                </div>
+                <div class="canvas-container" id="canvas-container">
+                    <div class="tooltip" id="tooltip"></div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="responsive-info">
+                    スマートフォンでの表示では、最適な体験のためにデスクトップへの切り替えをお勧めします。
+                </div>
+                
+                <div class="control-group">
+                    <h2>関数管理</h2>
+                    <div class="function-list" id="function-list">
+                        <!-- 関数リストが動的に生成されます -->
+                    </div>
+                    <button id="add-function">関数を追加</button>
+                    <button id="remove-function" class="danger">選択した関数を削除</button>
+                </div>
+                
+                <div class="control-group" id="function-controls">
+                    <h2>関数の設定</h2>
+                    <div id="no-function-selected" style="display: none;">
+                        <p>設定する関数を選択してください。</p>
+                    </div>
+                    
+                    <div id="function-settings">
+                        <div class="function-equation" id="function-equation">f(x) = x</div>
+                        
+                        <h3>関数タイプ</h3>
+                        <select id="function-type">
+                            <option value="linear">一次関数 (y = ax + b)</option>
+                            <option value="quadratic">二次関数 (y = ax² + bx + c)</option>
+                            <option value="cubic">三次関数 (y = ax³ + bx² + cx + d)</option>
+                            <option value="sine">正弦関数 (y = a·sin(bx + c) + d)</option>
+                            <option value="cosine">余弦関数 (y = a·cos(bx + c) + d)</option>
+                            <option value="exponential">指数関数 (y = a·e^(bx) + c)</option>
+                            <option value="logarithmic">対数関数 (y = a·log(bx) + c)</option>
+                            <option value="custom">カスタム関数</option>
+                        </select>
+                        
+                        <div id="custom-function-input" style="display: none;">
+                            <h3>カスタム関数式</h3>
+                            <input type="text" id="custom-expression" placeholder="例: 2*sin(x) + x^2/10">
+                            <button id="apply-custom">適用</button>
+                            <div class="info-message">
+                                変数は「x」を使用してください。sin, cos, tan, sqrt, log, exp 等の数学関数が利用可能です。
+                            </div>
+                        </div>
+                        
+                        <h3>パラメータ調整</h3>
+                        <div id="parameter-controls">
+                            <!-- パラメータコントロールが動的に生成されます -->
+                        </div>
+                        
+                        <h3>外観</h3>
+                        <div class="color-picker">
+                            <label for="function-color">線の色:</label>
+                            <input type="color" id="function-color" value="#3498db">
+                        </div>
+                        
+                        <div class="visualization-options">
+                            <label>
+                                <input type="checkbox" id="show-points" class="option-checkbox">
+                                ポイント表示
+                            </label>
+                            <label>
+                                <input type="checkbox" id="show-tangent" class="option-checkbox">
+                                接線表示
+                            </label>
+                            <label>
+                                <input type="checkbox" id="fill-area" class="option-checkbox">
+                                面積塗りつぶし
+                            </label>
+                        </div>
+                        
+                        <div class="animation-controls">
+                            <button id="animate-button">アニメーション開始</button>
+                            <button id="stop-animation">停止</button>
+                        </div>
+                        
+                        <div class="animation-parameter">
+                            <label for="animate-param">パラメータ:</label>
+                            <select id="animate-param">
+                                <option value="a">a</option>
+                                <option value="b">b</option>
+                                <option value="c">c</option>
+                                <option value="d">d</option>
+                            </select>
+                        </div>
+                        
+                        <div class="animation-speed-container">
+                            <label for="animation-speed">速度:</label>
+                            <input type="range" id="animation-speed" min="1" max="10" value="5">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h2>グラフ範囲設定</h2>
+                    <div class="range-wrapper">
+                        <div class="range-row">
+                            <div class="range-col">
+                                <label for="x-min">X最小値:</label>
+                                <input type="number" id="x-min" value="-10" step="1">
+                            </div>
+                            <div class="range-col">
+                                <label for="x-max">X最大値:</label>
+                                <input type="number" id="x-max" value="10" step="1">
+                            </div>
+                        </div>
+                        <div class="range-row">
+                            <div class="range-col">
+                                <label for="y-min">Y最小値:</label>
+                                <input type="number" id="y-min" value="-10" step="1">
+                            </div>
+                            <div class="range-col">
+                                <label for="y-max">Y最大値:</label>
+                                <input type="number" id="y-max" value="10" step="1">
+                            </div>
+                        </div>
+                        <button id="apply-range">範囲を適用</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // グローバル変数
+        let canvas;
+        let functions = [];
+        let selectedFunctionIndex = -1;
+        let xMin = -10;
+        let xMax = 10;
+        let yMin = -10;
+        let yMax = 10;
+        let offsetX = 0;
+        let offsetY = 0;
+        let zoomLevel = 1;
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let showGrid = true;
+        let showAxes = true;
+        let showLabels = true;
+        let isAnimating = false;
+        let animationParameter = 'a';
+        let animationSpeed = 5;
+        let animationDirection = 1;
+        
+        // 関数の色リスト
+        const colorList = [
+            '#3498db', // 青
+            '#e74c3c', // 赤
+            '#2ecc71', // 緑
+            '#f39c12', // オレンジ
+            '#9b59b6', // 紫
+            '#1abc9c', // ターコイズ
+            '#d35400', // 深オレンジ
+            '#34495e', // 紺
+            '#7f8c8d', // グレー
+            '#c0392b', // ダークレッド
+            '#16a085', // 深緑
+            '#f1c40f', // 黄色
+        ];
+        
+        // パラメータの範囲定義
+        const parameterRanges = {
+            linear: {
+                a: { min: -5, max: 5, step: 0.1, default: 1 },
+                b: { min: -10, max: 10, step: 0.1, default: 0 }
+            },
+            quadratic: {
+                a: { min: -2, max: 2, step: 0.1, default: 1 },
+                b: { min: -5, max: 5, step: 0.1, default: 0 },
+                c: { min: -10, max: 10, step: 0.1, default: 0 }
+            },
+            cubic: {
+                a: { min: -1, max: 1, step: 0.1, default: 1 },
+                b: { min: -2, max: 2, step: 0.1, default: 0 },
+                c: { min: -5, max: 5, step: 0.1, default: 0 },
+                d: { min: -10, max: 10, step: 0.1, default: 0 }
+            },
+            sine: {
+                a: { min: -5, max: 5, step: 0.1, default: 1 },
+                b: { min: 0.1, max: 5, step: 0.1, default: 1 },
+                c: { min: -Math.PI, max: Math.PI, step: 0.1, default: 0 },
+                d: { min: -5, max: 5, step: 0.1, default: 0 }
+            },
+            cosine: {
+                a: { min: -5, max: 5, step: 0.1, default: 1 },
+                b: { min: 0.1, max: 5, step: 0.1, default: 1 },
+                c: { min: -Math.PI, max: Math.PI, step: 0.1, default: 0 },
+                d: { min: -5, max: 5, step: 0.1, default: 0 }
+            },
+            exponential: {
+                a: { min: -5, max: 5, step: 0.1, default: 1 },
+                b: { min: -2, max: 2, step: 0.1, default: 1 },
+                c: { min: -10, max: 10, step: 0.1, default: 0 }
+            },
+            logarithmic: {
+                a: { min: -5, max: 5, step: 0.1, default: 1 },
+                b: { min: 0.1, max: 5, step: 0.1, default: 1 },
+                c: { min: -10, max: 10, step: 0.1, default: 0 }
+            }
+        };
+        
+        // p5.js setup関数
+        function setup() {
+            // キャンバスの設定
+            const canvasContainer = document.getElementById('canvas-container');
+            canvas = createCanvas(canvasContainer.offsetWidth, canvasContainer.offsetHeight);
+            canvas.parent('canvas-container');
+            
+            // 初期関数を追加
+            addFunction('linear', { a: 1, b: 0 }, colorList[0]);
+            
+            // イベントリスナーの設定
+            setupEventListeners();
+            
+            // 初期関数の選択
+            selectFunction(0);
+            updateFunctionsList();
+        }
+        
+        // p5.js draw関数
+        function draw() {
+            background(255);
+            
+            // グリッドと軸の描画
+            if (showGrid) drawGrid();
+            if (showAxes) drawAxes();
+            
+            // アニメーションの更新
+            if (isAnimating && selectedFunctionIndex !== -1) {
+                updateAnimation();
+            }
+            
+            // 関数の描画
+            drawFunctions();
+            
+            // ラベルの描画
+            if (showLabels) drawLabels();
+        }
+        
+        // グリッドの描画
+        function drawGrid() {
+            stroke(230);
+            strokeWeight(1 / zoomLevel);
+            
+            // X軸のグリッド線
+            const xStep = calculateGridStep(xMin, xMax);
+            for (let x = Math.floor(xMin / xStep) * xStep; x <= xMax; x += xStep) {
+                const screenX = mapX(x);
+                line(screenX, 0, screenX, height);
+            }
+            
+            // Y軸のグリッド線
+            const yStep = calculateGridStep(yMin, yMax);
+            for (let y = Math.floor(yMin / yStep) * yStep; y <= yMax; y += yStep) {
+                const screenY = mapY(y);
+                line(0, screenY, width, screenY);
+            }
+        }
+        
+        // グリッドステップの計算
+        function calculateGridStep(min, max) {
+            const range = max - min;
+            const normalizedRange = range / zoomLevel;
+            
+            if (normalizedRange <= 10) return 0.5;
+            if (normalizedRange <= 20) return 1;
+            if (normalizedRange <= 50) return 2;
+            if (normalizedRange <= 100) return 5;
+            return 10;
+        }
+        
+        // 軸の描画
+        function drawAxes() {
+            stroke(0);
+            strokeWeight(1.5 / zoomLevel);
+            
+            // X軸
+            const yZero = mapY(0);
+            if (yZero >= 0 && yZero <= height) {
+                line(0, yZero, width, yZero);
+                
+                // X軸の矢印
+                const arrowSize = 10 / zoomLevel;
+                fill(0);
+                triangle(width - 2 * arrowSize, yZero - arrowSize / 2, 
+                         width - 2 * arrowSize, yZero + arrowSize / 2, 
+                         width - arrowSize, yZero);
+            }
+            
+            // Y軸
+            const xZero = mapX(0);
+            if (xZero >= 0 && xZero <= width) {
+                line(xZero, 0, xZero, height);
+                
+                // Y軸の矢印
+                const arrowSize = 10 / zoomLevel;
+                fill(0);
+                triangle(xZero - arrowSize / 2, arrowSize * 2, 
+                         xZero + arrowSize / 2, arrowSize * 2, 
+                         xZero, arrowSize);
+            }
+        }
+        
+        // ラベルの描画
+        function drawLabels() {
+            fill(0);
+            noStroke();
+            textAlign(CENTER, CENTER);
+            
+            // X軸のラベル
+            const xStep = calculateGridStep(xMin, xMax);
+            const yZero = mapY(0);
+            textSize(12 / zoomLevel);
+            
+            for (let x = Math.floor(xMin / xStep) * xStep; x <= xMax; x += xStep) {
+                if (Math.abs(x) < 0.001) continue; // 原点はスキップ
+                
+                const screenX = mapX(x);
+                // X軸ラベルのY位置を調整
+                const labelY = yZero + 20 / zoomLevel;
+                if (labelY >= 0 && labelY <= height) {
+                    text(x.toFixed(1), screenX, labelY);
+                }
+            }
+            
+            // Y軸のラベル
+            const yStep = calculateGridStep(yMin, yMax);
+            const xZero = mapX(0);
+            
+            for (let y = Math.floor(yMin / yStep) * yStep; y <= yMax; y += yStep) {
+                if (Math.abs(y) < 0.001) continue; // 原点はスキップ
+                
+                const screenY = mapY(y);
+                // Y軸ラベルのX位置を調整
+                const labelX = xZero - 20 / zoomLevel;
+                if (labelX >= 0 && labelX <= width) {
+                    text(y.toFixed(1), labelX, screenY);
+                }
+            }
+            
+            // 原点ラベル
+            if (xZero >= 0 && xZero <= width && yZero >= 0 && yZero <= height) {
+                text("O", xZero - 15 / zoomLevel, yZero + 15 / zoomLevel);
+            }
+        }
+        
+        // 関数の描画
+        function drawFunctions() {
+            functions.forEach((func, index) => {
+                if (func.visible) {
+                    drawFunction(func, index === selectedFunctionIndex);
+                }
+            });
+        }
+        
+        // 個々の関数の描画
+        function drawFunction(func, isSelected) {
+            // 描画のスタイル設定
+            const strokeColor = color(func.color);
+            const fillColor = color(func.color);
+            fillColor.setAlpha(50);
+            
+            // 線の太さは選択状態によって変わる
+            const lineWeight = isSelected ? 3 / zoomLevel : 2 / zoomLevel;
+            
+            // 面積塗りつぶし
+            if (func.fillArea) {
+                fill(fillColor);
+                noStroke();
+                beginShape();
+                
+                // X軸の座標
+                const yZero = mapY(0);
+                vertex(mapX(xMin), yZero);
+                
+                // 関数の点を描画
+                for (let screenX = 0; screenX < width; screenX += 5) {
+                    const x = screenToMathX(screenX);
+                    if (x < xMin || x > xMax) continue;
+                    
+                    const y = evaluateFunction(func, x);
+                    if (isNaN(y)) continue;
+                    
+                    const screenY = mapY(y);
+                    vertex(screenX, screenY);
+                }
+                
+                vertex(mapX(xMax), yZero);
+                endShape(CLOSE);
+            }
+            
+            // 関数の線を描画
+            stroke(strokeColor);
+            strokeWeight(lineWeight);
+            noFill();
+            
+            beginShape();
+            let lastY = null;
+            let lastValidX = null;
+            let lastValidY = null;
+            
+            for (let screenX = 0; screenX < width; screenX += 2) {
+                const x = screenToMathX(screenX);
+                if (x < xMin || x > xMax) continue;
+                
+                const y = evaluateFunction(func, x);
+                if (isNaN(y) || Math.abs(y) > 1000) {
+                    // 関数が定義されていないポイントの処理
+                    if (lastY !== null) {
+                        endShape();
+                        lastY = null;
+                    }
+                    continue;
+                }
+                
+                // 急激な変化（不連続点）の処理
+                if (lastY !== null && Math.abs(y - lastY) > 10) {
+                    endShape();
+                    beginShape();
+                }
+                
+                const screenY = mapY(y);
+                vertex(screenX, screenY);
+                lastY = y;
+                lastValidX = x;
+                lastValidY = y;
+            }
+            endShape();
+            
+            // ポイントの描画
+            if (func.showPoints) {
+                fill(strokeColor);
+                noStroke();
+                
+                for (let screenX = 0; screenX < width; screenX += 20) {
+                    const x = screenToMathX(screenX);
+                    if (x < xMin || x > xMax) continue;
+                    
+                    const y = evaluateFunction(func, x);
+                    if (isNaN(y) || Math.abs(y) > 1000) continue;
+                    
+                    const screenY = mapY(y);
+                    circle(screenX, screenY, 5 / zoomLevel);
+                }
+            }
+            
+            // 接線の描画
+            if (func.showTangent && lastValidX !== null) {
+                const x = lastValidX;
+                const y = lastValidY;
+                
+                // 微分を計算して接線の傾きを求める
+                const h = 0.0001;
+                const derivative = (evaluateFunction(func, x + h) - evaluateFunction(func, x - h)) / (2 * h);
+                
+                // 接線を描画
+                const tangentLength = width / 4 / zoomLevel;
+                const x1 = x - tangentLength;
+                const y1 = y - derivative * tangentLength;
+                const x2 = x + tangentLength;
+                const y2 = y + derivative * tangentLength;
+                
+                stroke(strokeColor);
+                strokeWeight(1 / zoomLevel);
+                line(mapX(x1), mapY(y1), mapX(x2), mapY(y2));
+                
+                // 接点を強調
+                fill(strokeColor);
+                noStroke();
+                circle(mapX(x), mapY(y), 5 / zoomLevel);
+            }
+        }
+        
+        // 数式の評価
+        function evaluateFunction(func, x) {
+            try {
+                let result;
+                
+                switch (func.type) {
+                    case 'linear':
+                        result = func.params.a * x + func.params.b;
+                        break;
+                    case 'quadratic':
+                        result = func.params.a * x * x + func.params.b * x + func.params.c;
+                        break;
+                    case 'cubic':
+                        result = func.params.a * x * x * x + func.params.b * x * x + func.params.c * x + func.params.d;
+                        break;
+                    case 'sine':
+                        result = func.params.a * Math.sin(func.params.b * x + func.params.c) + func.params.d;
+                        break;
+                    case 'cosine':
+                        result = func.params.a * Math.cos(func.params.b * x + func.params.c) + func.params.d;
+                        break;
+                    case 'exponential':
+                        result = func.params.a * Math.exp(func.params.b * x) + func.params.c;
+                        break;
+                    case 'logarithmic':
+                        // 負の値にログを適用できないので、定義域外ならNaNを返す
+                        if (func.params.b * x <= 0) return NaN;
+                        result = func.params.a * Math.log(func.params.b * x) + func.params.c;
+                        break;
+                    case 'custom':
+                        const scope = { x: x };
+                        result = math.evaluate(func.expression, scope);
+                        break;
+                    default:
+                        result = x; // デフォルトはf(x) = x
+                }
+                
+                return result;
+            } catch (error) {
+                console.error("関数の評価エラー:", error);
+                return NaN;
+            }
+        }
+        
+        // X座標のマッピング（数学空間→画面空間）
+        function mapX(x) {
+            return map(x, xMin, xMax, 0, width);
+        }
+        
+        // Y座標のマッピング（数学空間→画面空間）
+        function mapY(y) {
+            return map(y, yMin, yMax, height, 0);
+        }
+        
+        // X座標のマッピング（画面空間→数学空間）
+        function screenToMathX(screenX) {
+            return map(screenX, 0, width, xMin, xMax);
+        }
+        
+        // Y座標のマッピング（画面空間→数学空間）
+        function screenToMathY(screenY) {
+            return map(screenY, height, 0, yMin, yMax);
+        }
+        
+        // 関数の追加
+        function addFunction(type = 'linear', params = null, color = null) {
+            // パラメータがない場合はデフォルト値を使用
+            if (!params) {
+                params = {};
+                const ranges = parameterRanges[type];
+                for (const key in ranges) {
+                    params[key] = ranges[key].default;
+                }
+            }
+            
+            // 色がない場合はリストから選択
+            if (!color) {
+                color = colorList[functions.length % colorList.length];
+            }
+            
+            // 関数オブジェクトの作成
+            const newFunction = {
+                type: type,
+                params: params,
+                color: color,
+                visible: true,
+                showPoints: false,
+                showTangent: false,
+                fillArea: false,
+                expression: type === 'custom' ? 'x' : '' // カスタム関数の場合のみ使用
+            };
+            
+            functions.push(newFunction);
+            return functions.length - 1; // 新しい関数のインデックスを返す
+        }
+        
+        // 関数の選択
+        function selectFunction(index) {
+            if (index < 0 || index >= functions.length) return;
+            
+            selectedFunctionIndex = index;
+            const func = functions[index];
+            
+            // UI更新
+            document.getElementById('function-type').value = func.type;
+            document.getElementById('function-color').value = func.color;
+            document.getElementById('show-points').checked = func.showPoints;
+            document.getElementById('show-tangent').checked = func.showTangent;
+            document.getElementById('fill-area').checked = func.fillArea;
+            
+            // パラメータコントロールの更新
+            updateParameterControls();
+            
+            // カスタム関数の入力欄表示/非表示
+            const customFunctionInput = document.getElementById('custom-function-input');
+            if (func.type === 'custom') {
+                customFunctionInput.style.display = 'block';
+                document.getElementById('custom-expression').value = func.expression;
+            } else {
+                customFunctionInput.style.display = 'none';
+            }
+            
+            // 関数式の表示更新
+            updateFunctionEquation();
+            
+            // 関数リストの更新
+            updateFunctionsList();
+            
+            // アニメーションパラメータドロップダウンの更新
+            updateAnimationParameterSelect();
+        }
+        
+        // 関数リストのUI更新
+        function updateFunctionsList() {
+            const listElement = document.getElementById('function-list');
+            listElement.innerHTML = '';
+            
+            functions.forEach((func, index) => {
+                const item = document.createElement('div');
+                item.className = `function-item${index === selectedFunctionIndex ? ' active' : ''}`;
+                
+                const typeNames = {
+                    linear: '一次関数',
+                    quadratic: '二次関数',
+                    cubic: '三次関数',
+                    sine: '正弦関数',
+                    cosine: '余弦関数',
+                    exponential: '指数関数',
+                    logarithmic: '対数関数',
+                    custom: 'カスタム関数'
+                };
+                
+                item.innerHTML = `
+                    <div>
+                        <span class="function-color" style="background-color: ${func.color};"></span>
+                        <span>${typeNames[func.type] || func.type}</span>
+                    </div>
+                    <div class="function-actions">
+                        <span class="function-action visibility-toggle">${func.visible ? '👁️' : '👁️‍🗨️'}</span>
+                        <span class="function-action duplicate">📋</span>
+                    </div>
+                `;
+                
+                // クリックイベント
+                item.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('function-action')) {
+                        selectFunction(index);
+                    }
+                });
+                
+                // 表示/非表示トグル
+                const visibilityToggle = item.querySelector('.visibility-toggle');
+                visibilityToggle.addEventListener('click', (e) => {
+                    func.visible = !func.visible;
+                    visibilityToggle.textContent = func.visible ? '👁️' : '👁️‍🗨️';
+                    e.stopPropagation();
+                });
+                
+                // 関数を複製
+                const duplicateButton = item.querySelector('.duplicate');
+                duplicateButton.addEventListener('click', (e) => {
+                    const newParams = { ...func.params };
+                    const newIndex = addFunction(func.type, newParams);
+                    
+                    if (func.type === 'custom') {
+                        functions[newIndex].expression = func.expression;
+                    }
+                    
+                    selectFunction(newIndex);
+                    e.stopPropagation();
+                });
+                
+                listElement.appendChild(item);
+            });
+        }
+        
+        // パラメータコントロールの更新
+        function updateParameterControls() {
+            if (selectedFunctionIndex === -1) return;
+            
+            const func = functions[selectedFunctionIndex];
+            const controlsContainer = document.getElementById('parameter-controls');
+            controlsContainer.innerHTML = '';
+            
+            // カスタム関数の場合はパラメータコントロールを表示しない
+            if (func.type === 'custom') return;
+            
+            // パラメータの範囲定義を取得
+            const ranges = parameterRanges[func.type];
+            
+            // 各パラメータのスライダーを作成
+            for (const param in ranges) {
+                const range = ranges[param];
+                const row = document.createElement('div');
+                row.className = 'parameter-row';
+                
+                // ラベル
+                const label = document.createElement('span');
+                label.className = 'parameter-label';
+                label.textContent = param;
+                row.appendChild(label);
+                
+                // スライダー
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.className = 'parameter-range';
+                slider.min = range.min;
+                slider.max = range.max;
+                slider.step = range.step;
+                slider.value = func.params[param] !== undefined ? func.params[param] : range.default;
+                slider.setAttribute('data-param', param);
+                
+                // 値表示
+                const value = document.createElement('span');
+                value.className = 'parameter-value';
+                value.textContent = slider.value;
+                
+                // スライダーイベント
+                slider.addEventListener('input', () => {
+                    func.params[param] = parseFloat(slider.value);
+                    value.textContent = slider.value;
+                    updateFunctionEquation();
+                });
+                
+                row.appendChild(slider);
+                row.appendChild(value);
+                controlsContainer.appendChild(row);
+            }
+        }
+        
+        // 関数式の表示更新
+        function updateFunctionEquation() {
+            if (selectedFunctionIndex === -1) return;
+            
+            const func = functions[selectedFunctionIndex];
+            const equationElement = document.getElementById('function-equation');
+            let equation = 'f(x) = ';
+            
+            switch (func.type) {
+                case 'linear':
+                    equation += `${func.params.a.toFixed(1)}x ${formatSignedNumber(func.params.b)}`;
+                    break;
+                case 'quadratic':
+                    equation += `${func.params.a.toFixed(1)}x² ${formatSignedNumber(func.params.b)}x ${formatSignedNumber(func.params.c)}`;
+                    break;
+                case 'cubic':
+                    equation += `${func.params.a.toFixed(1)}x³ ${formatSignedNumber(func.params.b)}x² ${formatSignedNumber(func.params.c)}x ${formatSignedNumber(func.params.d)}`;
+                    break;
+                case 'sine':
+                    equation += `${func.params.a.toFixed(1)}·sin(${func.params.b.toFixed(1)}x ${formatSignedNumber(func.params.c)}) ${formatSignedNumber(func.params.d)}`;
+                    break;
+                case 'cosine':
+                    equation += `${func.params.a.toFixed(1)}·cos(${func.params.b.toFixed(1)}x ${formatSignedNumber(func.params.c)}) ${formatSignedNumber(func.params.d)}`;
+                    break;
+                case 'exponential':
+                    equation += `${func.params.a.toFixed(1)}·e^(${func.params.b.toFixed(1)}x) ${formatSignedNumber(func.params.c)}`;
+                    break;
+                case 'logarithmic':
+                    equation += `${func.params.a.toFixed(1)}·log(${func.params.b.toFixed(1)}x) ${formatSignedNumber(func.params.c)}`;
+                    break;
+                case 'custom':
+                    equation += func.expression;
+                    break;
+            }
+            
+            equationElement.textContent = equation;
+        }
+        
+        // 符号付き数字のフォーマット
+        function formatSignedNumber(num) {
+            return num >= 0 ? `+ ${num.toFixed(1)}` : `- ${Math.abs(num).toFixed(1)}`;
+        }
+        
+        // アニメーションの更新
+        function updateAnimation() {
+            const func = functions[selectedFunctionIndex];
+            
+            // パラメータの範囲を取得
+            const ranges = parameterRanges[func.type];
+            if (!ranges || !ranges[animationParameter]) return;
+            
+            const range = ranges[animationParameter];
+            let param = func.params[animationParameter];
+            
+            // パラメータの変更
+            param += animationDirection * 0.02 * animationSpeed;
+            
+            // 範囲を超えたら方向を反転
+            if (param > range.max) {
+                param = range.max;
+                animationDirection = -1;
+            } else if (param < range.min) {
+                param = range.min;
+                animationDirection = 1;
+            }
+            
+            // パラメータの更新
+            func.params[animationParameter] = param;
+            
+            // UI更新
+            const slider = document.querySelector(`.parameter-range[data-param="${animationParameter}"]`);
+            const valueDisplay = slider?.nextElementSibling;
+            if (slider) {
+                slider.value = param;
+                if (valueDisplay) {
+                    valueDisplay.textContent = param.toFixed(2);
+                }
+            }
+            
+            // 関数式の更新
+            updateFunctionEquation();
+        }
+        
+        // アニメーションパラメータドロップダウンの更新
+        function updateAnimationParameterSelect() {
+            if (selectedFunctionIndex === -1) return;
+            
+            const func = functions[selectedFunctionIndex];
+            const select = document.getElementById('animate-param');
+            select.innerHTML = '';
+            
+            // カスタム関数の場合は更新しない
+            if (func.type === 'custom') return;
+            
+            // パラメータの範囲定義を取得
+            const ranges = parameterRanges[func.type];
+            
+            // 各パラメータをオプションとして追加
+            for (const param in ranges) {
+                const option = document.createElement('option');
+                option.value = param;
+                option.textContent = param;
+                select.appendChild(option);
+            }
+            
+            // 現在のアニメーションパラメータを選択
+            select.value = animationParameter;
+        }
+        
+        // イベントリスナーの設定
+        function setupEventListeners() {
+            // マウスホイールによるズーム
+            canvas.mouseWheel((event) => {
+                const zoomFactor = 1.1;
+                const mouseX = mouseX;
+                const mouseY = mouseY;
+                
+                // マウス位置の数学座標
+                const xMath = screenToMathX(mouseX);
+                const yMath = screenToMathY(mouseY);
+                
+                // ズームレベルの更新
+                if (event.delta > 0) {
+                    zoomLevel /= zoomFactor;
+                } else {
+                    zoomLevel *= zoomFactor;
+                }
+                
+                // 極端なズームを防止
+                zoomLevel = constrain(zoomLevel, 0.1, 10);
+                
+                // ズーム後もマウス位置が同じ数学座標を指すように調整
+                const newXMin = xMath - (xMath - xMin) * zoomFactor;
+                const newXMax = xMath + (xMax - xMath) * zoomFactor;
+                const newYMin = yMath - (yMath - yMin) * zoomFactor;
+                const newYMax = yMath + (yMax - yMath) * zoomFactor;
+                
+                xMin = newXMin;
+                xMax = newXMax;
+                yMin = newYMin;
+                yMax = newYMax;
+                
+                // UI更新
+                document.getElementById('x-min').value = xMin.toFixed(1);
+                document.getElementById('x-max').value = xMax.toFixed(1);
+                document.getElementById('y-min').value = yMin.toFixed(1);
+                document.getElementById('y-max').value = yMax.toFixed(1);
+                
+                return false; // デフォルトのスクロールを防止
+            });
+            
+            // マウスドラッグによるパン
+            canvas.mousePressed(() => {
+                isDragging = true;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+            });
+            
+            canvas.mouseDragged(() => {
+                if (isDragging) {
+                    const dx = (mouseX - lastMouseX) / width * (xMax - xMin);
+                    const dy = (mouseY - lastMouseY) / height * (yMax - yMin);
+                    
+                    xMin -= dx;
+                    xMax -= dx;
+                    yMin += dy;
+                    yMax += dy;
+                    
+                    lastMouseX = mouseX;
+                    lastMouseY = mouseY;
+                    
+                    // UI更新
+                    document.getElementById('x-min').value = xMin.toFixed(1);
+                    document.getElementById('x-max').value = xMax.toFixed(1);
+                    document.getElementById('y-min').value = yMin.toFixed(1);
+                    document.getElementById('y-max').value = yMax.toFixed(1);
+                }
+            });
+            
+            canvas.mouseReleased(() => {
+                isDragging = false;
+            });
+            
+            // マウスホバー時のツールチップ
+            canvas.mouseMoved(() => {
+                const mathX = screenToMathX(mouseX);
+                const mathY = screenToMathY(mouseY);
+                
+                // ツールチップの表示
+                let nearestFunction = null;
+                let nearestDistance = Infinity;
+                let nearestY = null;
+                
+                functions.forEach((func, index) => {
+                    if (!func.visible) return;
+                    
+                    const y = evaluateFunction(func, mathX);
+                    if (isNaN(y) || Math.abs(y) > 1000) return;
+                    
+                    const screenY = mapY(y);
+                    const distance = Math.abs(screenY - mouseY);
+                    
+                    if (distance < 20 && distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestFunction = func;
+                        nearestY = y;
+                    }
+                });
+                
+                const tooltip = document.getElementById('tooltip');
+                
+                if (nearestFunction && nearestDistance < 20) {
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = `${mouseX + 10}px`;
+                    tooltip.style.top = `${mouseY - 30}px`;
+                    tooltip.innerHTML = `(${mathX.toFixed(2)}, ${nearestY.toFixed(2)})`;
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            });
+            
+            // 関数タイプの変更
+            document.getElementById('function-type').addEventListener('change', function() {
+                if (selectedFunctionIndex === -1) return;
+                
+                const newType = this.value;
+                const oldType = functions[selectedFunctionIndex].type;
+                
+                // タイプが変わった場合はパラメータをリセット
+                if (newType !== oldType) {
+                    functions[selectedFunctionIndex].type = newType;
+                    
+                    // デフォルトパラメータの設定
+                    if (newType !== 'custom') {
+                        const ranges = parameterRanges[newType];
+                        const newParams = {};
+                        for (const key in ranges) {
+                            newParams[key] = ranges[key].default;
+                        }
+                        functions[selectedFunctionIndex].params = newParams;
+                    }
+                    
+                    // カスタム関数の表示/非表示
+                    const customFunctionInput = document.getElementById('custom-function-input');
+                    if (newType === 'custom') {
+                        customFunctionInput.style.display = 'block';
+                        
+                        // カスタム関数の式がまだない場合はデフォルト設定
+                        if (!functions[selectedFunctionIndex].expression) {
+                            functions[selectedFunctionIndex].expression = 'x';
+                        }
+                        document.getElementById('custom-expression').value = functions[selectedFunctionIndex].expression;
+                    } else {
+                        customFunctionInput.style.display = 'none';
+                    }
+                    
+                    // UI更新
+                    updateParameterControls();
+                    updateFunctionEquation();
+                    updateFunctionsList();
+                    updateAnimationParameterSelect();
+                }
+            });
+            
+            // カスタム関数の適用
+            document.getElementById('apply-custom').addEventListener('click', function() {
+                if (selectedFunctionIndex === -1) return;
+                
+                const expression = document.getElementById('custom-expression').value;
+                functions[selectedFunctionIndex].expression = expression;
+                updateFunctionEquation();
+            });
+            
+            // 関数の色変更
+            document.getElementById('function-color').addEventListener('change', function() {
+                if (selectedFunctionIndex === -1) return;
+                
+                functions[selectedFunctionIndex].color = this.value;
+                updateFunctionsList();
+            });
+            
+            // 表示オプションの変更
+            document.getElementById('show-points').addEventListener('change', function() {
+                if (selectedFunctionIndex === -1) return;
+                functions[selectedFunctionIndex].showPoints = this.checked;
+            });
+            
+            document.getElementById('show-tangent').addEventListener('change', function() {
+                if (selectedFunctionIndex === -1) return;
+                functions[selectedFunctionIndex].showTangent = this.checked;
+            });
+            
+            document.getElementById('fill-area').addEventListener('change', function() {
+                if (selectedFunctionIndex === -1) return;
+                functions[selectedFunctionIndex].fillArea = this.checked;
+            });
+            
+            // アニメーション制御
+            document.getElementById('animate-button').addEventListener('click', function() {
+                if (selectedFunctionIndex === -1) return;
+                
+                isAnimating = true;
+                animationParameter = document.getElementById('animate-param').value;
+                animationSpeed = parseFloat(document.getElementById('animation-speed').value);
+            });
+            
+            document.getElementById('stop-animation').addEventListener('click', function() {
+                isAnimating = false;
+            });
+            
+            document.getElementById('animation-speed').addEventListener('input', function() {
+                animationSpeed = parseFloat(this.value);
+            });
+            
+            document.getElementById('animate-param').addEventListener('change', function() {
+                animationParameter = this.value;
+            });
+            
+            // 範囲の適用
+            document.getElementById('apply-range').addEventListener('click', function() {
+                xMin = parseFloat(document.getElementById('x-min').value);
+                xMax = parseFloat(document.getElementById('x-max').value);
+                yMin = parseFloat(document.getElementById('y-min').value);
+                yMax = parseFloat(document.getElementById('y-max').value);
+                
+                // 値が不正な場合はデフォルトに戻す
+                if (xMin >= xMax) {
+                    xMin = -10;
+                    xMax = 10;
+                    document.getElementById('x-min').value = xMin;
+                    document.getElementById('x-max').value = xMax;
+                }
+                
+                if (yMin >= yMax) {
+                    yMin = -10;
+                    yMax = 10;
+                    document.getElementById('y-min').value = yMin;
+                    document.getElementById('y-max').value = yMax;
+                }
+            });
+            
+            // 表示の切り替え
+            document.getElementById('toggleGrid').addEventListener('click', function() {
+                showGrid = !showGrid;
+                this.classList.toggle('active', showGrid);
+            });
+            
+            document.getElementById('toggleAxes').addEventListener('click', function() {
+                showAxes = !showAxes;
+                this.classList.toggle('active', showAxes);
+            });
+            
+            document.getElementById('toggleLabels').addEventListener('click', function() {
+                showLabels = !showLabels;
+                this.classList.toggle('active', showLabels);
+            });
+            
+            document.getElementById('resetView').addEventListener('click', function() {
+                xMin = -10;
+                xMax = 10;
+                yMin = -10;
+                yMax = 10;
+                zoomLevel = 1;
+                
+                document.getElementById('x-min').value = xMin;
+                document.getElementById('x-max').value = xMax;
+                document.getElementById('y-min').value = yMin;
+                document.getElementById('y-max').value = yMax;
+            });
+            
+            // 関数の追加と削除
+            document.getElementById('add-function').addEventListener('click', function() {
+                const newIndex = addFunction();
+                selectFunction(newIndex);
+                updateFunctionsList();
+            });
+            
+            document.getElementById('remove-function').addEventListener('click', function() {
+                if (selectedFunctionIndex === -1) return;
+                if (functions.length <= 1) {
+                    alert('少なくとも1つの関数が必要です。');
+                    return;
+                }
+                
+                functions.splice(selectedFunctionIndex, 1);
+                
+                // 選択中の関数が削除された場合は最後の関数を選択
+                if (selectedFunctionIndex >= functions.length) {
+                    selectedFunctionIndex = functions.length - 1;
+                }
+                
+                selectFunction(selectedFunctionIndex);
+                updateFunctionsList();
+            });
+        }
+        
+        // ウィンドウリサイズ時の処理
+        function windowResized() {
+            const canvasContainer = document.getElementById('canvas-container');
+            resizeCanvas(canvasContainer.offsetWidth, canvasContainer.offsetHeight);
+        }
+    </script>
+</body>
+</html>
