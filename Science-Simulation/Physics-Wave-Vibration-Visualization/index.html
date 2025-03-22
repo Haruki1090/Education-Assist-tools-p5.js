@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>波動・振動現象の可視化ツール</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>波動・振動現象の可視化ツール</h1>
+    </header>
+    <main>
+        <div class="container">
+            <div class="sidebar">
+                <div class="scenario-selector">
+                    <h2>シナリオ選択</h2>
+                    <select id="scenario-select">
+                        <option value="singleWave">単一波の観察</option>
+                        <option value="waveInterference">波の干渉</option>
+                        <option value="waveReflection">波の反射と定在波</option>
+                        <option value="waveDiffraction">波の回折</option>
+                        <option value="soundAnalysis">音声波形解析</option>
+                    </select>
+                </div>
+                
+                <div class="controls">
+                    <h2>パラメータ調整</h2>
+                    <div id="parameter-controls">
+                        <!-- パラメータコントロールはJavaScriptで動的に生成される -->
+                    </div>
+                    
+                    <div class="buttons">
+                        <button id="start-btn">開始</button>
+                        <button id="reset-btn">リセット</button>
+                    </div>
+                </div>
+                
+                <div class="data-display">
+                    <h2>データ表示</h2>
+                    <div id="data-values">
+                        <!-- データ値はJavaScriptによって更新される -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="simulation-container">
+                <div id="simulation-canvas"></div>
+                <div class="simulation-info">
+                    <h3 id="scenario-title">シミュレーション</h3>
+                    <p id="scenario-description">パラメータを調整して「開始」ボタンをクリックしてください。</p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>波動と振動現象を楽しく学ぶためのシミュレーションツール</p>
+    </footer>
+
+    <!-- JavaScript Files -->
+    <script src="js/waveBase.js"></script>
+    <script src="js/singleWave.js"></script>
+    <script src="js/waveInterference.js"></script>
+    <script src="js/waveReflection.js"></script>
+    <script src="js/waveDiffraction.js"></script>
+    <script src="js/soundAnalysis.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
