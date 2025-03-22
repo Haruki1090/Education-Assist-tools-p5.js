@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>先端原子構造解析システム | 量子電子配置ビジュアライザー</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/electron-configuration.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="tech-overlay"></div>
+    <div class="tech-grid-pattern"></div>
+    <div class="tech-particles"></div>
+    
+    <main class="tech-app">
+        <!-- コントロールパネル -->
+        <div class="tech-interface-panel">
+            <div class="tech-system-logo">
+                <h1 class="tech-system-title">量子電子構造解析システム</h1>
+                <p class="tech-system-subtitle">先端原子構造可視化 v2.0</p>
+            </div>
+            
+            <!-- テーマ切り替えボタン -->
+            <div class="theme-toggle-container">
+                <button id="theme-toggle" class="theme-toggle-btn">
+                    <i class="fas fa-moon"></i>
+                    <span>ダークモード</span>
+                </button>
+            </div>
+            
+            <!-- 指示テキスト -->
+            <div class="tech-terminal">
+                <p class="tech-terminal-text">
+                    元素を選択して量子電子配置を解析します。3D表示機能で電子軌道の立体構造と量子特性を確認できます。
+                    <span class="tech-terminal-cursor"></span>
+                </p>
+            </div>
+            
+            <!-- 周期表コンテナ -->
+            <div id="periodic-table" class="tech-periodic-table"></div>
+        </div>
+        
+        <!-- 情報パネル -->
+        <div class="tech-info-panel">
+            <div class="tech-interface-panel" id="element-info-container">
+                <h2 class="tech-section-title">量子データ解析</h2>
+                
+                <!-- 元素情報 -->
+                <div id="element-info" class="tech-element-info">
+                    <div class="tech-placeholder">
+                        <i class="fas fa-atom"></i>
+                        <p>元素を選択して量子特性を表示</p>
+                    </div>
+                </div>
+                
+                <!-- 拡張情報 -->
+                <div class="tech-section">
+                    <h3 class="tech-section-subtitle">元素量子特性</h3>
+                    <div id="element-extended-data" class="tech-data-section">
+                        <!-- 拡張元素データがここに表示されます -->
+                    </div>
+                </div>
+                
+                <!-- 量子特性データ -->
+                <div class="tech-section">
+                    <h3 class="tech-section-subtitle">量子力学データ</h3>
+                    <div id="element-quantum-data" class="tech-data-section">
+                        <!-- 量子特性データがここに表示されます -->
+                    </div>
+                </div>
+                
+                <!-- 量子特性詳細 -->
+                <div class="tech-section">
+                    <h3 class="tech-section-subtitle">量子特性詳細</h3>
+                    <div id="element-quantum-details" class="tech-quantum-detail">
+                        <!-- 詳細な量子特性データがここに表示されます -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 3D電子配置モーダル -->
+    <div id="orbital-modal" class="tech-modal modal">
+        <div class="tech-modal-header">
+            <h2 id="modal-title" class="tech-modal-title">電子配置ビジュアライザー</h2>
+            <button id="close-modal" class="tech-modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="tech-modal-body">
+            <!-- ホログラム風3Dビューアー -->
+            <div id="orbital-viewer" class="tech-orbital-viewer"></div>
+            
+            <!-- コントロール -->
+            <div class="tech-controls">
+                <div class="tech-control-group">
+                    <label class="tech-control-label" for="brightness-slider">ブライトネス</label>
+                    <input type="range" id="brightness-slider" class="tech-slider" min="0" max="100" value="50">
+                </div>
+                
+                <div class="tech-control-group">
+                    <label class="tech-control-label" for="electron-speed">電子速度</label>
+                    <input type="range" id="electron-speed" class="tech-slider" min="0" max="100" value="50">
+                </div>
+            </div>
+            
+            <!-- タブコンテンツ -->
+            <div class="tech-tabs">
+                <button class="tech-tab active" data-tab="electron-configuration-tab">電子配置</button>
+                <button class="tech-tab" data-tab="physical-properties-tab">物理特性</button>
+                <button class="tech-tab" data-tab="electronic-properties-tab">電子特性</button>
+                <button class="tech-tab" data-tab="quantum-properties-tab">量子特性</button>
+            </div>
+            
+            <!-- タブコンテンツ -->
+            <div id="electron-configuration-tab" class="tech-tab-content active">
+                <div id="electron-configuration" class="tech-electron-config">
+                    <!-- 電子配置情報がここに表示されます -->
+                </div>
+            </div>
+            
+            <div id="physical-properties-tab" class="tech-tab-content">
+                <div id="physical-properties" class="tech-data-grid">
+                    <!-- 物理特性がここに表示されます -->
+                </div>
+            </div>
+            
+            <div id="electronic-properties-tab" class="tech-tab-content">
+                <div id="electron-properties" class="tech-data-grid">
+                    <!-- 電子特性がここに表示されます -->
+                </div>
+            </div>
+            
+            <div id="quantum-properties-tab" class="tech-tab-content">
+                <div id="quantum-properties" class="tech-data-grid">
+                    <!-- 量子特性がここに表示されます -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="js/libs/OrbitControls.js"></script>
+    <script src="js/data/element-data.js"></script>
+    <script src="js/electron-configuration.js"></script>
+    <script src="js/periodic-table.js"></script>
+    <script src="js/orbital-viewer.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
