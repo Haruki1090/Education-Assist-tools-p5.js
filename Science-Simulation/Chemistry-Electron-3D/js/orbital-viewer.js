@@ -172,7 +172,8 @@ class OrbitalViewer {
         // 明るさ調整スライダー
         const brightnessSlider = document.getElementById('brightness-slider');
         if (brightnessSlider) {
-            brightnessSlider.value = this.options.brightnessLevel * 100;
+            // 100分率に変換して設定（0.5 → 50）
+            brightnessSlider.value = Math.round(this.options.brightnessLevel * 100);
             brightnessSlider.addEventListener('input', (e) => {
                 this.setBrightness(e.target.value / 100);
             });
@@ -181,7 +182,8 @@ class OrbitalViewer {
         // 電子速度調整スライダー
         const electronSpeedSlider = document.getElementById('electron-speed');
         if (electronSpeedSlider) {
-            electronSpeedSlider.value = this.options.electronSpeed * 50;
+            // 100分率に変換して設定（0.5 → 50）
+            electronSpeedSlider.value = Math.round(this.options.electronSpeed * 50);
             electronSpeedSlider.addEventListener('input', (e) => {
                 this.setElectronSpeed(e.target.value / 50);
             });
@@ -193,7 +195,10 @@ class OrbitalViewer {
      * @param {number} level - 明るさレベル (0.0-1.0)
      */
     setBrightness(level) {
-        this.options.brightnessLevel = Math.max(0.1, Math.min(1.0, level));
+        // 値の制限と丸め
+        this.options.brightnessLevel = Math.max(0.1, Math.min(1.0, parseFloat(level.toFixed(2))));
+        
+        console.log(`明るさを設定: ${this.options.brightnessLevel}`);
         
         // 光源の明るさを調整
         if (this.scene) {
@@ -215,6 +220,26 @@ class OrbitalViewer {
             // 明るさレベルに基づいて背景色を計算
             const bgBrightness = Math.floor(bgBase + this.options.brightnessLevel * bgRange);
             this.scene.background = new THREE.Color(`rgb(${bgBrightness}, ${bgBrightness}, ${bgBrightness})`);
+            
+            // 各オブジェクトの透明度やエミッシブも調整
+            const emissiveFactor = this.options.brightnessLevel * 0.2;
+            this.orbitals.forEach(orbital => {
+                if (orbital.material) {
+                    if (orbital.material.opacity) {
+                        orbital.material.opacity = 0.3 + (this.options.brightnessLevel * 0.5);
+                    }
+                    if (orbital.material.emissive) {
+                        orbital.material.emissiveIntensity = emissiveFactor;
+                    }
+                }
+            });
+            
+            // 電子の輝きと粒子効果も調整
+            this.electrons.forEach(electron => {
+                if (electron.material) {
+                    electron.material.emissiveIntensity = 0.5 + (this.options.brightnessLevel * 1.5);
+                }
+            });
         }
     }
     
@@ -223,14 +248,27 @@ class OrbitalViewer {
      * @param {number} speed - 電子の移動速度 (0.0-2.0)
      */
     setElectronSpeed(speed) {
-        this.options.electronSpeed = Math.max(0.1, Math.min(2.0, speed));
+        // 値の制限と丸め
+        this.options.electronSpeed = Math.max(0.1, Math.min(2.0, parseFloat(speed.toFixed(2))));
+        
+        console.log(`電子速度を設定: ${this.options.electronSpeed}`);
         
         // 各電子の速度を更新
         this.electrons.forEach(electron => {
             if (electron.userData) {
                 electron.userData.speed = this.options.electronSpeed * (0.5 + Math.random() * 0.5);
+                electron.userData.baseSpeed = this.options.electronSpeed;
             }
         });
+        
+        // 軌跡の長さと消失速度も速度に応じて調整
+        if (this.options.electronSpeed > 1.0) {
+            this.options.trailLength = Math.floor(10 + (this.options.electronSpeed * 10));
+            this.options.trailFadeTime = 1.0 / this.options.electronSpeed;
+        } else {
+            this.options.trailLength = 20;
+            this.options.trailFadeTime = 1.0;
+        }
     }
     
     /**
@@ -623,65 +661,54 @@ class OrbitalViewer {
      * 電子のアニメーション処理
      */
     animateElectrons() {
-        if (!this.electrons || this.electrons.length === 0) return;
+        // 電子の移動にされたベクトルを一時保存
+        const movedElectrons = new Array(this.electrons.length);
+        const currentTime = performance.now() / 1000; // 秒単位に変換
         
-        // 時間係数 - パフォーマンスのために倍率を下げる
-        const time = Date.now() * 0.0005;
+        this.electrons.forEach((electron, index) => {
+            if (!electron.userData) return;
+            
+            // 前のフレームの位置を保存
+            const prevPosition = electron.position.clone();
+            
+            // 電子に関連する軌道パスを取得
+            const orbitalPath = electron.userData.orbitalPath;
+            if (!orbitalPath) return;
+            
+            // スピード係数を適用（基本速度 * ランダム係数 * 時間）
+            const speed = electron.userData.speed;
+            const timeOffset = electron.userData.timeOffset || 0;
+            
+            // 軌道パラメータ（t）を更新（時間ベースの制御に変更）
+            let t = ((currentTime * speed) + timeOffset) % 1.0;
+            electron.userData.t = t;
+            
+            // B-スプライン曲線に沿って電子を移動
+            const point = orbitalPath.getPointAt(t);
+            electron.position.copy(point);
+            
+            // 移動した電子の情報を保存
+            movedElectrons[index] = {
+                prev: prevPosition,
+                new: point.clone()
+            };
+            
+            // 電子の回転も更新
+            electron.rotation.x += 0.01 * speed;
+            electron.rotation.y += 0.01 * speed;
+        });
         
-        // 各電子を更新（パフォーマンス最適化）
-        for (let i = 0; i < this.electrons.length; i++) {
-            const electron = this.electrons[i];
-            if (!electron || !electron.userData) continue;
+        // 電子の軌跡を更新（移動量に基づいて）
+        if (this.options.showTrails) {
+            movedElectrons.forEach((moved, index) => {
+                if (moved) {
+                    this.updateElectronTrail(index, moved.prev, moved.new);
+                }
+            });
             
-            const data = electron.userData;
-            const speed = data.orbitSpeed * (this.options.electronSpeed || 1.0);
-            
-            // 角度の更新（単純化）
-            data.orbitAngle += speed;
-            if (data.orbitAngle > Math.PI * 2) {
-                data.orbitAngle -= Math.PI * 2;
-            }
-            
-            // 軌道計算の簡略化
-            const radius = data.orbitRadius;
-            const angle = data.orbitAngle;
-            const phase = data.orbitPhase + time;
-            
-            // 軌道平面ごとに異なる動きを簡略化
-            let x, y, z;
-            const plane = data.orbitPlane % 3;
-            
-            // 計算を単純化（パフォーマンス向上）
-            if (plane === 0) {
-                x = Math.cos(angle) * radius;
-                y = Math.sin(angle) * radius;
-                z = Math.sin(phase) * (radius * 0.2);
-            } else if (plane === 1) {
-                x = Math.sin(phase) * (radius * 0.2);
-                y = Math.cos(angle) * radius;
-                z = Math.sin(angle) * radius;
-            } else {
-                x = Math.cos(angle) * radius;
-                y = Math.sin(phase) * (radius * 0.2);
-                z = Math.sin(angle) * radius;
-            }
-            
-            // 位置を更新
-            electron.position.set(x, y, z);
-            
-            // 軌跡更新の簡略化 - 細かすぎる更新はスキップ
-            if (i % 2 === 0 && this.options.showTrails !== false) {
-                const prevPosition = electron.userData.prevPosition || electron.position.clone();
-                this.updateElectronTrail(i, prevPosition, electron.position.clone());
-                electron.userData.prevPosition = electron.position.clone();
-            }
-        }
-        
-        // トレイルの透明度更新は2フレームに1回に制限
-        if (this.frameCount % 2 === 0) {
+            // 軌跡の透明度を更新
             this.updateTrailOpacity();
         }
-        this.frameCount = (this.frameCount || 0) + 1;
     }
     
     /**
@@ -691,51 +718,117 @@ class OrbitalViewer {
      * @param {THREE.Vector3} newPosition - 新しい位置
      */
     updateElectronTrail(electronIndex, prevPosition, newPosition) {
-        const trailPoints = this.trailPoints[electronIndex];
+        // 対応する軌跡のジオメトリを取得
         const trail = this.electronTrails[electronIndex];
+        if (!trail) return;
         
-        if (!trailPoints || !trail) return;
+        // 現在の電子の設定を取得
+        const electron = this.electrons[electronIndex];
+        if (!electron || !electron.userData) return;
         
-        // 前回の位置と現在の位置の距離が一定以上なら新しい点を追加
-        const minDistance = 0.1;
-        const lastPoint = trailPoints.length > 0 ? trailPoints[trailPoints.length - 1] : null;
-        if (!lastPoint || lastPoint.distanceTo(newPosition) > minDistance) {
-            // 新しい点を追加
-            trailPoints.push(newPosition);
+        // 軌跡ポイントが存在するか確認
+        if (!this.trailPoints[electronIndex]) {
+            this.trailPoints[electronIndex] = [];
+        }
+        
+        const points = this.trailPoints[electronIndex];
+        const maxTrailLength = this.options.trailLength; // 速度に応じた軌跡長
+        
+        // 新しい点を追加
+        points.push({
+            position: newPosition.clone(),
+            timestamp: performance.now() / 1000, // 現在の時間を秒単位で記録
+            speed: electron.userData.baseSpeed || this.options.electronSpeed // 速度情報を記録
+        });
+        
+        // 最大数を超えたら古い点を削除
+        while (points.length > maxTrailLength) {
+            points.shift();
+        }
+        
+        // 軌跡用の点を新しく作成
+        const curvePoints = [];
+        points.forEach(point => {
+            curvePoints.push(point.position);
+        });
+        
+        // 軌跡を更新
+        if (curvePoints.length >= 2) {
+            const curve = new THREE.CatmullRomCurve3(curvePoints);
+            const geometry = new THREE.TubeGeometry(
+                curve,
+                curvePoints.length * 2, // セグメント数
+                0.02 * (0.5 + (electron.userData.baseSpeed || 0.5)), // 軌跡の太さ（速度に応じて変化）
+                8,
+                false
+            );
             
-            // 最大点数を制限
-            const maxPoints = 20;
-            if (trailPoints.length > maxPoints) {
-                trailPoints.shift();
-            }
-            
-            // 軌跡の形状を更新
-            const positions = new Float32Array(trailPoints.length * 3);
-            for (let i = 0; i < trailPoints.length; i++) {
-                positions[i * 3] = trailPoints[i].x;
-                positions[i * 3 + 1] = trailPoints[i].y;
-                positions[i * 3 + 2] = trailPoints[i].z;
-            }
-            
-            trail.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            trail.geometry.attributes.position.needsUpdate = true;
-            trail.geometry.computeBoundingSphere();
+            // 既存のジオメトリを破棄してから新しいものを設定
+            if (trail.geometry) trail.geometry.dispose();
+            trail.geometry = geometry;
         }
     }
     
     /**
-     * 軌跡の透明度を更新
+     * 軌跡の透明度を時間経過に応じて更新
      */
     updateTrailOpacity() {
+        const currentTime = performance.now() / 1000; // 現在時間（秒）
+        
+        // 各電子の軌跡を処理
         for (let i = 0; i < this.electronTrails.length; i++) {
             const trail = this.electronTrails[i];
-            if (!trail) continue;
+            const points = this.trailPoints[i];
             
-            // 時間経過で軌跡を少しずつ薄くする
-            trail.material.opacity *= 0.95;
-            // 最小透明度を設定
-            if (trail.material.opacity < 0.1) {
-                trail.material.opacity = 0.1;
+            if (!trail || !points || points.length === 0) continue;
+            
+            // 対応する電子の情報を取得
+            const electron = this.electrons[i];
+            if (!electron || !electron.userData) continue;
+            
+            // 速度に基づいて消失時間を調整
+            const speed = electron.userData.baseSpeed || this.options.electronSpeed;
+            const fadeTime = this.options.trailFadeTime / speed; // 速い電子ほど軌跡が早く消える
+            
+            // 軌跡の各ポイントの経過時間と透明度を処理
+            let opacity = 0;
+            let maxOpacity = 0;
+            
+            // 最も新しいポイントが最も不透明に
+            if (points.length > 0) {
+                const newest = points[points.length - 1];
+                const elapsed = currentTime - newest.timestamp;
+                
+                if (elapsed < fadeTime) {
+                    // 進行中の軌跡は明るく
+                    opacity = 0.7 * (1 - (elapsed / fadeTime));
+                    maxOpacity = Math.max(maxOpacity, opacity);
+                }
+            }
+            
+            // 中間のポイントも含めて最大の不透明度を使用
+            for (let j = points.length - 2; j >= 0; j--) {
+                const point = points[j];
+                const elapsed = currentTime - point.timestamp;
+                
+                if (elapsed < fadeTime) {
+                    // より古いポイントほど透明に
+                    const pointOpacity = 0.7 * (1 - (elapsed / fadeTime)) * (j / points.length);
+                    maxOpacity = Math.max(maxOpacity, pointOpacity);
+                }
+            }
+            
+            // 明るさ設定に基づいて軌跡の透明度を調整
+            const brightnessAdjustedOpacity = maxOpacity * (0.5 + this.options.brightnessLevel * 0.5);
+            
+            // マテリアルに透明度を適用
+            if (trail.material) {
+                trail.material.opacity = brightnessAdjustedOpacity;
+                
+                // エミッシブも調整
+                if (trail.material.emissiveIntensity) {
+                    trail.material.emissiveIntensity = 0.3 + (this.options.brightnessLevel * 0.7);
+                }
             }
         }
     }
@@ -1177,10 +1270,12 @@ class OrbitalViewer {
             
             // 電子のジオメトリとマテリアル
             const geometry = new THREE.SphereGeometry(electronSize, electronSegments, electronSegments);
-            const material = new THREE.MeshBasicMaterial({ 
-                color: 0xffff00,
-                emissive: 0xffff00,
-                emissiveIntensity: 0.5
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0x00ffff,
+                emissive: 0x33aaff,
+                emissiveIntensity: 0.5 + (this.options.brightnessLevel * 1.5),
+                shininess: 90,
+                specular: 0x3399ff
             });
             
             // 電子の軌道データを取得
@@ -1188,20 +1283,62 @@ class OrbitalViewer {
             const radius = userData.radius || (n * 1.2); // 半径を少し小さく
             const type = userData.l || 's';
             
-            // 軌道に合わせた電子の初期配置
-            const angle = (Math.random() * Math.PI * 2) + (index * Math.PI / 2);
-            let x = Math.cos(angle) * radius;
-            let y = Math.sin(angle) * radius;
-            let z = 0;
+            // 電子の軌道パス（B-スプライン曲線）を作成
+            const points = [];
+            const segments = 20;
+            const phaseOffset = index * (Math.PI / 3);
             
-            // p, d, f軌道の場合は3D空間に分散
-            if (type === 'p' || type === 'd' || type === 'f') {
-                z = (Math.random() - 0.5) * radius;
+            // 軌道に応じたパスの作成
+            if (type === 's') {
+                // 円形軌道
+                for (let i = 0; i <= segments; i++) {
+                    const angle = (i / segments) * Math.PI * 2;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+                    const z = 0;
+                    points.push(new THREE.Vector3(x, y, z));
+                }
+            } else if (type === 'p') {
+                // 8の字軌道（楕円体）
+                for (let i = 0; i <= segments; i++) {
+                    const t = (i / segments) * Math.PI * 2;
+                    const x = Math.cos(t) * radius;
+                    const y = Math.sin(t) * Math.cos(t) * radius;
+                    const z = Math.sin(t * 2) * (radius * 0.5);
+                    points.push(new THREE.Vector3(x, y, z));
+                }
+            } else {
+                // d, f軌道（より複雑な軌道）
+                for (let i = 0; i <= segments; i++) {
+                    const t = (i / segments) * Math.PI * 2;
+                    const x = Math.cos(t) * radius * (0.8 + Math.sin(t * 3) * 0.2);
+                    const y = Math.sin(t) * radius * (0.8 + Math.cos(t * 2) * 0.2);
+                    const z = Math.sin(t * 3) * (radius * 0.4);
+                    points.push(new THREE.Vector3(x, y, z));
+                }
             }
+            
+            // 軌道パスを作成
+            const orbitalPath = new THREE.CatmullRomCurve3(points);
+            orbitalPath.closed = true;
+            
+            // パスの可視化（デバッグ用、通常は非表示）
+            /*
+            const pathGeometry = new THREE.BufferGeometry().setFromPoints(
+                orbitalPath.getPoints(50)
+            );
+            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
+            const pathLine = new THREE.Line(pathGeometry, pathMaterial);
+            this.scene.add(pathLine);
+            */
+            
+            // ランダムな開始位置
+            const startT = Math.random();
+            const startPoint = orbitalPath.getPointAt(startT);
             
             // 電子を作成して位置を設定
             const electron = new THREE.Mesh(geometry, material);
-            electron.position.set(x, y, z);
+            electron.position.copy(startPoint);
             
             // 電子のデータを設定
             electron.userData = {
@@ -1211,11 +1348,11 @@ class OrbitalViewer {
                 orbitalIndex: index,
                 orbitalName: `${n}${type}`,
                 shellName: `殻 ${n}`,
-                orbitRadius: radius,
-                orbitSpeed: 0.6 / n, // 単純化
-                orbitAngle: angle,
-                orbitPhase: index * (Math.PI / 4),
-                orbitPlane: index % 3
+                orbitalPath: orbitalPath,
+                t: startT,
+                timeOffset: Math.random() * 10, // 位相をランダムにするための時間オフセット
+                speed: this.options.electronSpeed * (0.5 + Math.random() * 0.5), // 速度
+                baseSpeed: this.options.electronSpeed // 基本速度
             };
             
             // シーンに追加
@@ -1282,21 +1419,76 @@ class OrbitalViewer {
      * @param {number} electronIndex - 電子のインデックス
      */
     initializeElectronTrail(electronIndex) {
-        // 軌跡の点を記録する配列
+        // 既存の軌跡があれば破棄
+        if (this.electronTrails[electronIndex]) {
+            if (this.electronTrails[electronIndex].parent) {
+                this.scene.remove(this.electronTrails[electronIndex]);
+            }
+            if (this.electronTrails[electronIndex].geometry) {
+                this.electronTrails[electronIndex].geometry.dispose();
+            }
+            if (this.electronTrails[electronIndex].material) {
+                this.electronTrails[electronIndex].material.dispose();
+            }
+        }
+        
+        // 対応する電子を取得
+        const electron = this.electrons[electronIndex];
+        if (!electron || !electron.userData) return;
+        
+        // 電子の色情報を取得（もしくはデフォルト値を使用）
+        const electronColor = electron.material ? electron.material.color.clone() : new THREE.Color(0x33aaff);
+        
+        // 軌跡のポイント配列を初期化
         this.trailPoints[electronIndex] = [];
         
-        // 軌跡の線を作成
-        const trailMaterial = new THREE.LineBasicMaterial({
-            color: 0xffff88,
+        // エネルギーレベルに応じた色の設定
+        const n = electron.userData.n || 1;
+        const baseColor = new THREE.Color(0x3399ff);
+        let trailColor;
+        
+        if (n === 1) {
+            trailColor = new THREE.Color(0x33ccff);
+        } else if (n === 2) {
+            trailColor = new THREE.Color(0x33ffcc);
+        } else if (n === 3) {
+            trailColor = new THREE.Color(0xccff33);
+        } else if (n === 4) {
+            trailColor = new THREE.Color(0xff9933);
+        } else {
+            trailColor = new THREE.Color(0xff3366);
+        }
+        
+        // 暫定の曲線を作成（仮の点を使用）
+        const tempPoints = [];
+        const electron_pos = electron.position.clone();
+        
+        for (let i = 0; i < 3; i++) {
+            tempPoints.push(new THREE.Vector3(
+                electron_pos.x + (Math.random() - 0.5) * 0.1,
+                electron_pos.y + (Math.random() - 0.5) * 0.1,
+                electron_pos.z + (Math.random() - 0.5) * 0.1
+            ));
+        }
+        
+        const curve = new THREE.CatmullRomCurve3(tempPoints);
+        const geometry = new THREE.TubeGeometry(curve, 20, 0.02, 8, false);
+        
+        // トレイル用の発光マテリアル
+        const material = new THREE.MeshBasicMaterial({
+            color: trailColor,
             transparent: true,
-            opacity: 0.5,
-            linewidth: 1
+            opacity: 0.7,
+            emissive: trailColor,
+            emissiveIntensity: 0.5,
+            side: THREE.DoubleSide
         });
         
-        const trailGeometry = new THREE.BufferGeometry();
-        const trail = new THREE.Line(trailGeometry, trailMaterial);
-        
+        // トレイルメッシュを作成
+        const trail = new THREE.Mesh(geometry, material);
         this.electronTrails[electronIndex] = trail;
+        
+        // シーンに追加
         this.scene.add(trail);
     }
     
