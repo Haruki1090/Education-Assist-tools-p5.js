@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幾何学概念説明アプリケーション</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .canvas-container {
+            flex: 1;
+            min-width: 600px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .controls {
+            flex: 0 0 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 0;
+            font-size: 18px;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .range-value {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
+            margin-left: 10px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .properties {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }
+        .property-item {
+            margin-bottom: 8px;
+        }
+        .highlight {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .mode-buttons {
+            margin-bottom: 15px;
+        }
+        .active {
+            background-color: #16a085;
+        }
+        .info-panel {
+            background-color: #f9f9f9;
+            padding: 12px;
+            border-left: 4px solid #3498db;
+            margin-top: 15px;
+        }
+        .color-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>幾何学概念説明アプリケーション</h1>
+        </header>
+        <div class="content">
+            <div class="canvas-container" id="canvas-container"></div>
+            <div class="controls">
+                <div class="mode-buttons">
+                    <button id="triangleMode" class="active">三角形</button>
+                    <button id="transformationMode">変換</button>
+                </div>
+                
+                <div id="triangleControls">
+                    <div class="control-group">
+                        <h2>三角形の頂点</h2>
+                        <div>
+                            <label>頂点Aの位置：</label>
+                            <input type="range" id="vertexAX" min="50" max="550" value="150">
+                            <input type="range" id="vertexAY" min="50" max="350" value="100">
+                        </div>
+                        <div>
+                            <label>頂点Bの位置：</label>
+                            <input type="range" id="vertexBX" min="50" max="550" value="250">
+                            <input type="range" id="vertexBY" min="50" max="350" value="300">
+                        </div>
+                        <div>
+                            <label>頂点Cの位置：</label>
+                            <input type="range" id="vertexCX" min="50" max="550" value="400">
+                            <input type="range" id="vertexCY" min="50" max="350" value="150">
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h2>特別な三角形</h2>
+                        <button id="equilateralBtn">正三角形</button>
+                        <button id="isoscelesBtn">二等辺三角形</button>
+                        <button id="rightBtn">直角三角形</button>
+                    </div>
+                </div>
+                
+                <div id="transformationControls" style="display: none;">
+                    <div class="control-group">
+                        <h2>変換パラメータ</h2>
+                        <div>
+                            <label>回転 (°)：</label>
+                            <input type="range" id="rotationSlider" min="0" max="360" value="0">
+                            <span id="rotationValue" class="range-value">0</span>
+                        </div>
+                        <div>
+                            <label>拡大縮小：</label>
+                            <input type="range" id="scaleSlider" min="0.5" max="2" step="0.1" value="1">
+                            <span id="scaleValue" class="range-value">1</span>
+                        </div>
+                        <div>
+                            <label>X軸移動：</label>
+                            <input type="range" id="translateXSlider" min="-100" max="100" value="0">
+                            <span id="translateXValue" class="range-value">0</span>
+                        </div>
+                        <div>
+                            <label>Y軸移動：</label>
+                            <input type="range" id="translateYSlider" min="-100" max="100" value="0">
+                            <span id="translateYValue" class="range-value">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h2>アニメーション</h2>
+                        <button id="animateRotationBtn">回転アニメーション</button>
+                        <button id="animateScaleBtn">拡大縮小アニメーション</button>
+                        <button id="resetTransformBtn">リセット</button>
+                    </div>
+                </div>
+                
+                <div class="properties">
+                    <h2>図形のプロパティ</h2>
+                    <div id="properties-content">
+                        <!-- properties will be dynamically added here -->
+                    </div>
+                </div>
+                
+                <div class="info-panel">
+                    <p><strong>操作方法：</strong></p>
+                    <p>・スライダーを動かして三角形の頂点や変換パラメータを調整</p>
+                    <p>・頂点を直接ドラッグして移動</p>
+                    <p>・ボタンをクリックして特別な三角形を作成</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let vertexA, vertexB, vertexC;
+        let originalA, originalB, originalC;
+        let draggingVertex = null;
+        let highlightProperty = null;
+        let highlightTimer = 0;
+        
+        // Transformation parameters
+        let rotation = 0;
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        
+        // Animation flags
+        let isRotating = false;
+        let isScaling = false;
+        let scaleDirection = 1;
+        
+        // Mode control
+        let currentMode = 'triangle'; // 'triangle' or 'transformation'
+        
+        // P5.js setup function
+        function setup() {
+            // Create canvas in the container
+            const canvasContainer = document.getElementById('canvas-container');
+            const canvas = createCanvas(600, 400);
+            canvas.parent(canvasContainer);
+            
+            // Initialize vertices
+            vertexA = createVector(150, 100);
+            vertexB = createVector(250, 300);
+            vertexC = createVector(400, 150);
+            
+            // Store original positions for transformations
+            originalA = vertexA.copy();
+            originalB = vertexB.copy();
+            originalC = vertexC.copy();
+            
+            // Setup slider event listeners
+            setupEventListeners();
+            
+            // Initial update of properties display
+            updatePropertiesDisplay();
+        }
+        
+        // P5.js draw function - called continuously
+        function draw() {
+            background(255);
+            
+            // Apply animations if active
+            if (currentMode === 'transformation') {
+                if (isRotating) {
+                    rotation = (rotation + 1) % 360;
+                    document.getElementById('rotationSlider').value = rotation;
+                    document.getElementById('rotationValue').textContent = rotation;
+                }
+                
+                if (isScaling) {
+                    scale += 0.01 * scaleDirection;
+                    if (scale > 2) {
+                        scale = 2;
+                        scaleDirection = -1;
+                    } else if (scale < 0.5) {
+                        scale = 0.5;
+                        scaleDirection = 1;
+                    }
+                    document.getElementById('scaleSlider').value = scale;
+                    document.getElementById('scaleValue').textContent = scale.toFixed(1);
+                }
+                
+                // Apply transformations
+                applyTransformations();
+            } else {
+                // Update vertex positions from sliders
+                vertexA.x = parseFloat(document.getElementById('vertexAX').value);
+                vertexA.y = parseFloat(document.getElementById('vertexAY').value);
+                vertexB.x = parseFloat(document.getElementById('vertexBX').value);
+                vertexB.y = parseFloat(document.getElementById('vertexBY').value);
+                vertexC.x = parseFloat(document.getElementById('vertexCX').value);
+                vertexC.y = parseFloat(document.getElementById('vertexCY').value);
+                
+                // Update original vertices for transformations
+                originalA = vertexA.copy();
+                originalB = vertexB.copy();
+                originalC = vertexC.copy();
+            }
+            
+            // Draw coordinate grid
+            drawGrid();
+            
+            // Draw the triangle
+            drawTriangle();
+            
+            // Draw points at vertices
+            drawVertices();
+            
+            // Draw labels and measurements
+            drawLabelsAndMeasurements();
+            
+            // Update highlight timer
+            if (highlightTimer > 0) {
+                highlightTimer--;
+                if (highlightTimer === 0) {
+                    highlightProperty = null;
+                }
+            }
+        }
+        
+        // Draw coordinate grid
+        function drawGrid() {
+            stroke(230);
+            strokeWeight(1);
+            
+            // Draw horizontal grid lines
+            for (let y = 0; y <= height; y += 50) {
+                line(0, y, width, y);
+            }
+            
+            // Draw vertical grid lines
+            for (let x = 0; x <= width; x += 50) {
+                line(x, 0, x, height);
+            }
+        }
+        
+        // Draw the triangle
+        function drawTriangle() {
+            // Draw triangle sides
+            drawTriangleSides();
+            
+            // Fill the triangle with semi-transparent color
+            fill(100, 180, 255, 100);
+            noStroke();
+            triangle(vertexA.x, vertexA.y, vertexB.x, vertexB.y, vertexC.x, vertexC.y);
+        }
+        
+        // Draw the sides of the triangle with appropriate styling
+        function drawTriangleSides() {
+            // Calculate side lengths
+            const sideAB = dist(vertexA.x, vertexA.y, vertexB.x, vertexB.y);
+            const sideBC = dist(vertexB.x, vertexB.y, vertexC.x, vertexC.y);
+            const sideCA = dist(vertexC.x, vertexC.y, vertexA.x, vertexA.y);
+            
+            // Determine if it's an equilateral triangle
+            const isEquilateral = 
+                abs(sideAB - sideBC) < 5 && 
+                abs(sideBC - sideCA) < 5 && 
+                abs(sideCA - sideAB) < 5;
+                
+            // Determine if it's an isosceles triangle
+            const isIsosceles = 
+                abs(sideAB - sideBC) < 5 || 
+                abs(sideBC - sideCA) < 5 || 
+                abs(sideCA - sideAB) < 5;
+                
+            strokeWeight(3);
+            
+            // Side AB
+            if (highlightProperty === 'equilateral' || 
+                highlightProperty === 'isosceles' && (abs(sideAB - sideBC) < 5 || abs(sideAB - sideCA) < 5)) {
+                stroke(220, 50, 50);
+            } else {
+                stroke(50, 120, 220);
+            }
+            line(vertexA.x, vertexA.y, vertexB.x, vertexB.y);
+            
+            // Side BC
+            if (highlightProperty === 'equilateral' || 
+                highlightProperty === 'isosceles' && (abs(sideBC - sideAB) < 5 || abs(sideBC - sideCA) < 5)) {
+                stroke(220, 50, 50);
+            } else {
+                stroke(50, 120, 220);
+            }
+            line(vertexB.x, vertexB.y, vertexC.x, vertexC.y);
+            
+            // Side CA
+            if (highlightProperty === 'equilateral' || 
+                highlightProperty === 'isosceles' && (abs(sideCA - sideAB) < 5 || abs(sideCA - sideBC) < 5)) {
+                stroke(220, 50, 50);
+            } else {
+                stroke(50, 120, 220);
+            }
+            line(vertexC.x, vertexC.y, vertexA.x, vertexA.y);
+            
+            // Draw right angle symbol if applicable
+            const angleA = calculateAngle(vertexB, vertexA, vertexC);
+            const angleB = calculateAngle(vertexC, vertexB, vertexA);
+            const angleC = calculateAngle(vertexA, vertexC, vertexB);
+            
+            if (abs(angleA - 90) < 2) {
+                drawRightAngleSymbol(vertexA, vertexB, vertexC);
+            }
+            if (abs(angleB - 90) < 2) {
+                drawRightAngleSymbol(vertexB, vertexC, vertexA);
+            }
+            if (abs(angleC - 90) < 2) {
+                drawRightAngleSymbol(vertexC, vertexA, vertexB);
+            }
+        }
+        
+        // Draw right angle symbol
+        function drawRightAngleSymbol(vertex, p1, p2) {
+            const size = 15;
+            const v1 = createVector(p1.x - vertex.x, p1.y - vertex.y).normalize().mult(size);
+            const v2 = createVector(p2.x - vertex.x, p2.y - vertex.y).normalize().mult(size);
+            
+            stroke(220, 50, 50);
+            strokeWeight(2);
+            noFill();
+            beginShape();
+            vertex(vertex.x + v1.x, vertex.y + v1.y);
+            vertex(vertex.x + v1.x + v2.x, vertex.y + v1.y + v2.y);
+            vertex(vertex.x + v2.x, vertex.y + v2.y);
+            endShape();
+        }
+        
+        // Draw circles at the vertices
+        function drawVertices() {
+            noStroke();
+            
+            // Vertex A
+            fill(220, 50, 50);
+            circle(vertexA.x, vertexA.y, 12);
+            
+            // Vertex B
+            fill(50, 180, 50);
+            circle(vertexB.x, vertexB.y, 12);
+            
+            // Vertex C
+            fill(50, 50, 220);
+            circle(vertexC.x, vertexC.y, 12);
+        }
+        
+        // Draw labels and measurements
+        function drawLabelsAndMeasurements() {
+            // Vertex labels
+            textSize(16);
+            fill(0);
+            text("A", vertexA.x + 15, vertexA.y - 5);
+            text("B", vertexB.x + 15, vertexB.y - 5);
+            text("C", vertexC.x + 15, vertexC.y - 5);
+            
+            // Angle labels
+            const angleA = calculateAngle(vertexB, vertexA, vertexC);
+            const angleB = calculateAngle(vertexC, vertexB, vertexA);
+            const angleC = calculateAngle(vertexA, vertexC, vertexB);
+            
+            textSize(14);
+            
+            // Draw angle A
+            drawAngleArc(vertexA, vertexB, vertexC, color(220, 50, 50, 150));
+            if (highlightProperty === 'angles') {
+                fill(220, 50, 50);
+            } else {
+                fill(0);
+            }
+            text(angleA.toFixed(1) + "°", 
+                vertexA.x + 25 * cos((angleA / 2) * PI / 180), 
+                vertexA.y + 25 * sin((angleA / 2) * PI / 180));
+            
+            // Draw angle B
+            drawAngleArc(vertexB, vertexC, vertexA, color(50, 180, 50, 150));
+            if (highlightProperty === 'angles') {
+                fill(50, 180, 50);
+            } else {
+                fill(0);
+            }
+            text(angleB.toFixed(1) + "°", 
+                vertexB.x + 25 * cos((angleB / 2 + 180) * PI / 180), 
+                vertexB.y + 25 * sin((angleB / 2 + 180) * PI / 180));
+            
+            // Draw angle C
+            drawAngleArc(vertexC, vertexA, vertexB, color(50, 50, 220, 150));
+            if (highlightProperty === 'angles') {
+                fill(50, 50, 220);
+            } else {
+                fill(0);
+            }
+            text(angleC.toFixed(1) + "°", 
+                vertexC.x + 25 * cos((angleC / 2 + 270) * PI / 180), 
+                vertexC.y + 25 * sin((angleC / 2 + 270) * PI / 180));
+            
+            // Side lengths
+            const sideAB = dist(vertexA.x, vertexA.y, vertexB.x, vertexB.y).toFixed(1);
+            const sideBC = dist(vertexB.x, vertexB.y, vertexC.x, vertexC.y).toFixed(1);
+            const sideCA = dist(vertexC.x, vertexC.y, vertexA.x, vertexA.y).toFixed(1);
+            
+            if (highlightProperty === 'sides') {
+                fill(220, 50, 50);
+            } else {
+                fill(0);
+            }
+            
+            text(`AB = ${sideAB}`, (vertexA.x + vertexB.x) / 2 + 10, (vertexA.y + vertexB.y) / 2 + 10);
+            text(`BC = ${sideBC}`, (vertexB.x + vertexC.x) / 2 + 10, (vertexB.y + vertexC.y) / 2 + 10);
+            text(`CA = ${sideCA}`, (vertexC.x + vertexA.x) / 2 + 10, (vertexC.y + vertexA.y) / 2 + 10);
+        }
+        
+        // Draw an arc to visualize an angle
+        function drawAngleArc(vertex, p1, p2, arcColor) {
+            const radius = 20;
+            const v1 = createVector(p1.x - vertex.x, p1.y - vertex.y);
+            const v2 = createVector(p2.x - vertex.x, p2.y - vertex.y);
+            const angle1 = atan2(v1.y, v1.x);
+            const angle2 = atan2(v2.y, v2.x);
+            
+            noFill();
+            stroke(arcColor);
+            strokeWeight(2);
+            
+            // Ensure the arc takes the smaller angle
+            let startAngle = angle1;
+            let endAngle = angle2;
+            if ((angle2 - angle1 + TWO_PI) % TWO_PI > PI) {
+                startAngle = angle2;
+                endAngle = angle1;
+            }
+            
+            arc(vertex.x, vertex.y, radius * 2, radius * 2, startAngle, endAngle);
+        }
+        
+        // Calculate angle between three points
+        function calculateAngle(p1, vertex, p2) {
+            const v1 = createVector(p1.x - vertex.x, p1.y - vertex.y);
+            const v2 = createVector(p2.x - vertex.x, p2.y - vertex.y);
+            
+            // Calculate the angle in degrees
+            let angle = abs(degrees(atan2(v2.y, v2.x) - atan2(v1.y, v1.x)));
+            
+            // Ensure the smaller angle is returned (maximum 180 degrees)
+            if (angle > 180) {
+                angle = 360 - angle;
+            }
+            
+            return angle;
+        }
+        
+        // Apply transformations to the triangle
+        function applyTransformations() {
+            push();
+            
+            // Apply transformations
+            translate(width / 2, height / 2);
+            rotate(radians(rotation));
+            scale(scale);
+            translate(translateX, translateY);
+            
+            // Calculate transformed vertices
+            const center = createVector(
+                (originalA.x + originalB.x + originalC.x) / 3 - width / 2,
+                (originalA.y + originalB.y + originalC.y) / 3 - height / 2
+            );
+            
+            vertexA.x = originalA.x - width / 2 - center.x;
+            vertexA.y = originalA.y - height / 2 - center.y;
+            vertexB.x = originalB.x - width / 2 - center.x;
+            vertexB.y = originalB.y - height / 2 - center.y;
+            vertexC.x = originalC.x - width / 2 - center.x;
+            vertexC.y = originalC.y - height / 2 - center.y;
+            
+            pop();
+            
+            // Adjust vertices for display
+            vertexA.x += width / 2;
+            vertexA.y += height / 2;
+            vertexB.x += width / 2;
+            vertexB.y += height / 2;
+            vertexC.x += width / 2;
+            vertexC.y += height / 2;
+        }
+        
+        // Create a regular triangle with specified size and center
+        function createRegularTriangle(type) {
+            const center = createVector(width / 2, height / 2);
+            const radius = 100;
+            
+            if (type === 'equilateral') {
+                // Equilateral triangle
+                vertexA.x = center.x;
+                vertexA.y = center.y - radius;
+                vertexB.x = center.x - radius * cos(PI/6);
+                vertexB.y = center.y + radius * sin(PI/6);
+                vertexC.x = center.x + radius * cos(PI/6);
+                vertexC.y = center.y + radius * sin(PI/6);
+                
+                highlightProperty = 'equilateral';
+                highlightTimer = 60;
+            } else if (type === 'isosceles') {
+                // Isosceles triangle
+                vertexA.x = center.x;
+                vertexA.y = center.y - radius;
+                vertexB.x = center.x - radius * 0.75;
+                vertexB.y = center.y + radius * 0.5;
+                vertexC.x = center.x + radius * 0.75;
+                vertexC.y = center.y + radius * 0.5;
+                
+                highlightProperty = 'isosceles';
+                highlightTimer = 60;
+            } else if (type === 'right') {
+                // Right triangle
+                vertexA.x = center.x - radius * 0.7;
+                vertexA.y = center.y - radius * 0.7;
+                vertexB.x = center.x - radius * 0.7;
+                vertexB.y = center.y + radius * 0.7;
+                vertexC.x = center.x + radius * 0.7;
+                vertexC.y = center.y + radius * 0.7;
+                
+                highlightProperty = 'right';
+                highlightTimer = 60;
+            }
+            
+            // Update sliders to match the new vertices
+            updateSliders();
+            
+            // Update original vertices for transformations
+            originalA = vertexA.copy();
+            originalB = vertexB.copy();
+            originalC = vertexC.copy();
+            
+            // Update properties display
+            updatePropertiesDisplay();
+        }
+        
+        // Update the sliders to match the current vertex positions
+        function updateSliders() {
+            document.getElementById('vertexAX').value = vertexA.x;
+            document.getElementById('vertexAY').value = vertexA.y;
+            document.getElementById('vertexBX').value = vertexB.x;
+            document.getElementById('vertexBY').value = vertexB.y;
+            document.getElementById('vertexCX').value = vertexC.x;
+            document.getElementById('vertexCY').value = vertexC.y;
+        }
+        
+        // Reset transformations
+        function resetTransformations() {
+            rotation = 0;
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            
+            // Update sliders
+            document.getElementById('rotationSlider').value = rotation;
+            document.getElementById('scaleSlider').value = scale;
+            document.getElementById('translateXSlider').value = translateX;
+            document.getElementById('translateYSlider').value = translateY;
+            
+            // Update displays
+            document.getElementById('rotationValue').textContent = '0';
+            document.getElementById('scaleValue').textContent = '1';
+            document.getElementById('translateXValue').textContent = '0';
+            document.getElementById('translateYValue').textContent = '0';
+            
+            // Stop animations
+            isRotating = false;
+            isScaling = false;
+        }
+        
+        // Mouse pressed event
+        function mousePressed() {
+            if (currentMode === 'triangle') {
+                // Check if a vertex is being dragged
+                const mousePos = createVector(mouseX, mouseY);
+                
+                if (dist(mousePos.x, mousePos.y, vertexA.x, vertexA.y) < 15) {
+                    draggingVertex = vertexA;
+                } else if (dist(mousePos.x, mousePos.y, vertexB.x, vertexB.y) < 15) {
+                    draggingVertex = vertexB;
+                } else if (dist(mousePos.x, mousePos.y, vertexC.x, vertexC.y) < 15) {
+                    draggingVertex = vertexC;
+                }
+            }
+        }
+        
+        // Mouse dragged event
+        function mouseDragged() {
+            if (draggingVertex && currentMode === 'triangle') {
+                // Update the position of the dragged vertex
+                draggingVertex.x = constrain(mouseX, 50, width - 50);
+                draggingVertex.y = constrain(mouseY, 50, height - 50);
+                
+                // Update the sliders to match
+                updateSliders();
+                
+                // Update properties display
+                updatePropertiesDisplay();
+            }
+        }
+        
+        // Mouse released event
+        function mouseReleased() {
+            draggingVertex = null;
+            
+            // Update original vertices for transformations
+            if (currentMode === 'triangle') {
+                originalA = vertexA.copy();
+                originalB = vertexB.copy();
+                originalC = vertexC.copy();
+            }
+        }
+        
+        // Update the properties display
+        function updatePropertiesDisplay() {
+            const propertiesElement = document.getElementById('properties-content');
+            
+            // Calculate properties
+            const angleA = calculateAngle(vertexB, vertexA, vertexC);
+            const angleB = calculateAngle(vertexC, vertexB, vertexA);
+            const angleC = calculateAngle(vertexA, vertexC, vertexB);
+            const totalAngle = angleA + angleB + angleC;
+            
+            const sideAB = dist(vertexA.x, vertexA.y, vertexB.x, vertexB.y);
+            const sideBC = dist(vertexB.x, vertexB.y, vertexC.x, vertexC.y);
+            const sideCA = dist(vertexC.x, vertexC.y, vertexA.x, vertexA.y);
+            
+            // Determine triangle type
+            let triangleType = '';
+            
+            if (abs(sideAB - sideBC) < 5 && 
+                abs(sideBC - sideCA) < 5 && 
+                abs(sideCA - sideAB) < 5) {
+                triangleType += '正三角形 (Equilateral)';
+            } else if (abs(sideAB - sideBC) < 5 || 
+                      abs(sideBC - sideCA) < 5 || 
+                      abs(sideCA - sideAB) < 5) {
+                triangleType += '二等辺三角形 (Isosceles)';
+            } else {
+                triangleType += '不等辺三角形 (Scalene)';
+            }
+            
+            if (abs(angleA - 90) < 2 || abs(angleB - 90) < 2 || abs(angleC - 90) < 2) {
+                triangleType += '、直角三角形 (Right)';
+            } else if (angleA > 90 || angleB > 90 || angleC > 90) {
+                triangleType += '、鈍角三角形 (Obtuse)';
+            } else {
+                triangleType += '、鋭角三角形 (Acute)';
+            }
+            
+            // Calculate the area
+            const area = 0.5 * abs((vertexB.x - vertexA.x) * (vertexC.y - vertexA.y) - 
+                                   (vertexC.x - vertexA.x) * (vertexB.y - vertexA.y));
+            
+            // Calculate the perimeter
+            const perimeter = sideAB + sideBC + sideCA;
+            
+            // HTML content for properties
+            let html = '';
+            html += `<div class="property-item">三角形の種類: <span class="highlight">${triangleType}</span></div>`;
+            html += `<div class="property-item">角度の合計: <span class="highlight">${totalAngle.toFixed(1)}°</span></div>`;
+            html += `<div class="property-item">辺の長さ: AB=${sideAB.toFixed(1)}, BC=${sideBC.toFixed(1)}, CA=${sideCA.toFixed(1)}</div>`;
+            html += `<div class="property-item">面積: <span class="highlight">${area.toFixed(1)} px²</span></div>`;
+            html += `<div class="property-item">周長: <span class="highlight">${perimeter.toFixed(1)} px</span></div>`;
+            
+            propertiesElement.innerHTML = html;
+        }
+        
+        // Set up event listeners
+        function setupEventListeners() {
+            // Slider event listeners for vertex positions
+            document.getElementById('vertexAX').addEventListener('input', function() {
+                updatePropertiesDisplay();
+            });
+            
+            document.getElementById('vertexAY').addEventListener('input', function() {
+                updatePropertiesDisplay();
+            });
+            
+            document.getElementById('vertexBX').addEventListener('input', function() {
+                updatePropertiesDisplay();
+            });
+            
+            document.getElementById('vertexBY').addEventListener('input', function() {
+                updatePropertiesDisplay();
+            });
+            
+            document.getElementById('vertexCX').addEventListener('input', function() {
+                updatePropertiesDisplay();
+            });
+            
+            document.getElementById('vertexCY').addEventListener('input', function() {
+                updatePropertiesDisplay();
+            });
+            
+            // Button event listeners for special triangles
+            document.getElementById('equilateralBtn').addEventListener('click', function() {
+                createRegularTriangle('equilateral');
+            });
+            
+            document.getElementById('isoscelesBtn').addEventListener('click', function() {
+                createRegularTriangle('isosceles');
+            });
+            
+            document.getElementById('rightBtn').addEventListener('click', function() {
+                createRegularTriangle('right');
+            });
+            
+            // Mode toggle buttons
+            document.getElementById('triangleMode').addEventListener('click', function() {
+                currentMode = 'triangle';
+                document.getElementById('triangleControls').style.display = 'block';
+                document.getElementById('transformationControls').style.display = 'none';
+                document.getElementById('triangleMode').classList.add('active');
+                document.getElementById('transformationMode').classList.remove('active');
+                
+                // Reset transformations
+                resetTransformations();
+            });
+            
+            document.getElementById('transformationMode').addEventListener('click', function() {
+                currentMode = 'transformation';
+                document.getElementById('triangleControls').style.display = 'none';
+                document.getElementById('transformationControls').style.display = 'block';
+                document.getElementById('triangleMode').classList.remove('active');
+                document.getElementById('transformationMode').classList.add('active');
+            });
+            
+            // Transformation controls
+            document.getElementById('rotationSlider').addEventListener('input', function() {
+                rotation = parseInt(this.value);
+                document.getElementById('rotationValue').textContent = rotation;
+                isRotating = false;
+            });
+            
+            document.getElementById('scaleSlider').addEventListener('input', function() {
+                scale = parseFloat(this.value);
+                document.getElementById('scaleValue').textContent = scale.toFixed(1);
+                isScaling = false;
+            });
+            
+            document.getElementById('translateXSlider').addEventListener('input', function() {
+                translateX = parseInt(this.value);
+                document.getElementById('translateXValue').textContent = translateX;
+            });
+            
+            document.getElementById('translateYSlider').addEventListener('input', function() {
+                translateY = parseInt(this.value);
+                document.getElementById('translateYValue').textContent = translateY;
+            });
+            
+            // Animation buttons
+            document.getElementById('animateRotationBtn').addEventListener('click', function() {
+                isRotating = !isRotating;
+                if (isRotating) {
+                    this.textContent = "回転停止";
+                } else {
+                    this.textContent = "回転アニメーション";
+                }
+            });
+            
+            document.getElementById('animateScaleBtn').addEventListener('click', function() {
+                isScaling = !isScaling;
+                if (isScaling) {
+                    this.textContent = "拡大縮小停止";
+                } else {
+                    this.textContent = "拡大縮小アニメーション";
+                }
+            });
+            
+            document.getElementById('resetTransformBtn').addEventListener('click', function() {
+                resetTransformations();
+                document.getElementById('animateRotationBtn').textContent = "回転アニメーション";
+                document.getElementById('animateScaleBtn').textContent = "拡大縮小アニメーション";
+            });
+        }
+    </script>
+</body>
+</html>
