@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>原子・分子構造の探検ラボ</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- メインキャンバスエリア -->
+        <div class="canvas-area">
+            <div id="scene-container"></div>
+            
+            <!-- ローディングスピナー -->
+            <div class="loader" id="loader"></div>
+            
+            <!-- 原子ツールチップ -->
+            <div class="atom-tooltip" id="atom-tooltip"></div>
+            
+            <!-- オーバーレイ要素 -->
+            <div class="overlay">
+                <!-- ツールバー -->
+                <div class="toolbar">
+                    <button class="tool-btn active" id="tool-build">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWF0b20iPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEiLz48cGF0aCBkPSJNMTIgM2E5IDkgMCAwIDAtOSA5IDkgOSAwIDAgMCA5IDkgOSA5IDAgMCAwIDAtMThaIi8+PHBhdGggZD0iTTE5LjU4IDIwLjU4YTkgOSAwIDAgMCAwLTEyLjczbC0uMDMtLjAzIi8+PHBhdGggZD0iTTYuMjcgNi4yN2E5IDkgMCAwIDAtLjAzIDEyLjczIi8+PC9zdmc+" alt="ビルド">
+                        <div class="tooltip">分子構築</div>
+                    </button>
+                    <button class="tool-btn" id="tool-react">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXJlY3ljbGUiPjxwYXRoIGQ9Ik03IDE5bDEuOC0yLjljLjItLjMuMi0uNyAwLTFMNi4yIDEyIi8+PHBhdGggZD0iTTEwIDE0bC0xLjgxIDEuOGMtLjIuMy0uMi43IDAgMUwxMC4yIDE5Ii8+PHBhdGggZD0iTTEyIDEyaDEuOGMuMy4wLjYuMi43LjVsMS4zIDIuNWg1Ii8+PHBhdGggZD0iTTUuMjkgNWg1LjRjLjQuMC43LjIuOS42bDEuNSA0LjQiLz48cGF0aCBkPSJNMy4wMSAxMlY1aDQiLz48cGF0aCBkPSJNMTYgNS40QTEwIDEwIDAgMCAwIDEzLjAzIDE2Ii8+PC9zdmc+" alt="反応">
+                        <div class="tooltip">化学反応</div>
+                    </button>
+                    <button class="tool-btn" id="tool-explore">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXNlYXJjaCI+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iOCIvPjxwYXRoIGQ9Im0yMSAyMS00LjQtNC40Ii8+PC9zdmc+" alt="探索">
+                        <div class="tooltip">探索モード</div>
+                    </button>
+                    <button class="tool-btn" id="tool-view">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWN1YmUiPjxwYXRoIGQ9Ik0yMSAxNmEyIDIgMCAwIDEtMiAySDUuMTNhMiAyIDAgMCAxLTEuOC0xLjExbDMuNzUtNy44OWEyIDIgMCAwIDEgMS44LTEuMTFoMTIuMjVhMiAyIDAgMCAxIDIgMloiLz48cGF0aCBkPSJNMy44NyA4LjM3OUw4IDNoM2M2LjYxIDAgMTAgMi4zIDEwIDkuNTgiLz48cGF0aCBkPSJNMjAgOUg0Ii8+PC9zdmc+" alt="ビュー">
+                        <div class="tooltip">ビュー設定</div>
+                    </button>
+                    <button class="tool-btn" id="tool-help">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWhlbHAtY2lyY2xlIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIvPjxwYXRoIGQ9Ik05LjA5IDlhMyAzIDAgMCAxIDUuODMgMWMwIDItMyAzLTMgM20uMDEgNGgtLjAxIi8+PC9zdmc+" alt="ヘルプ">
+                        <div class="tooltip">ヘルプ</div>
+                    </button>
+                </div>
+                
+                <!-- ジェスチャーガイド -->
+                <div class="gesture-guide">
+                    <div class="gesture-item">
+                        <div class="gesture-icon">👆</div>
+                        <span>クリック: 原子を選択/追加</span>
+                    </div>
+                    <div class="gesture-item">
+                        <div class="gesture-icon">✌️</div>
+                        <span>ドラッグ: カメラを回転</span>
+                    </div>
+                    <div class="gesture-item">
+                        <div class="gesture-icon">🔍</div>
+                        <span>スクロール: 拡大/縮小</span>
+                    </div>
+                </div>
+                
+                <!-- 情報カード -->
+                <div class="info-card" id="info-card">
+                    <div class="info-card-header" id="info-card-header">
+                        <h3 class="info-card-title">分子エクスプローラー</h3>
+                        <button class="info-card-toggle" id="info-card-toggle">▼</button>
+                    </div>
+                    <div class="info-card-content" id="info-card-content">
+                        左上のツールバーから機能を選択し、分子の世界を探検しましょう。
+                        <br><br>
+                        「分子構築」では元素を選択して原子を配置したり、あらかじめ用意された分子テンプレートを使用できます。
+                        <br><br>
+                        アトムを選択してドラッグすると移動でき、2つのアトムを順番に選択すると結合ができます。
+                    </div>
+                </div>
+                
+                <!-- ドック -->
+                <div class="dock">
+                    <div class="dock-item active" id="dock-add" title="原子を追加">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXBsdXMtY2lyY2xlIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIvPjxwYXRoIGQ9Ik0xMiA4djgiLz48cGF0aCBkPSJNOCAxMmg4Ii8+PC9zdmc+" alt="追加">
+                    </div>
+                    <div class="dock-item" id="dock-bond" title="結合を作成">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWxpbmsiPjxwYXRoIGQ9Ik0xMCAyMkg4QTggOCAwIDAgMSA4IDZoMiIvPjxwYXRoIGQ9Ik0xNCAyaC0yYTggOCAwIDAgMCAwIDE2aDIiLz48cGF0aCBkPSJNOSAxMmg2Ii8+PC9zdmc+" alt="結合">
+                    </div>
+                    <div class="dock-item" id="dock-delete" title="削除">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXRyYXNoLTIiPjxwYXRoIGQ9Ik0zIDZoMThNMTkgNmE1IDUgMCAwIDEtNS01SDEwYTUgNSAwIDAgMS01IDV2MTRhMiAyIDAgMCAwIDIgMmgxMGEyIDIgMCAwIDAgMi0yVjYiLz48cGF0aCBkPSJNMTAgMTF2NiIvPjxwYXRoIGQ9Ik0xNCAxMXY2Ii8+PC9zdmc+" alt="削除">
+                    </div>
+                    <div class="dock-item" id="dock-clear" title="すべてクリア">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXJlZnJlc2gtY2N3Ij48cGF0aCBkPSJNMy4xIDdhOSA5IDAgMCAxIDEyLjktMy4xUzIwIDQwQzEuMiIvPjxwYXRoIGQ9Ik0xIDgtMiA4LjAxIi8+PHBhdGggZD0iTTggMUg5Ii8+PHBhdGggZD0iTTIzIDE2YTEwIDEwIDAgMSAwLTguNi01bC0xLjQgMSIvPjxwYXRoIGQ9Ik0xIDFoNHY0Ii8+PC9zdmc+" alt="クリア">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- サイドパネル: 分子構築 -->
+        <div class="side-panel" id="build-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">
+                    分子構築
+                    <button class="close-panel" id="close-build-panel">×</button>
+                </h2>
+            </div>
+            <div class="panel-content">
+                <div class="panel-section">
+                    <h3 class="section-title">元素を選択</h3>
+                    <div class="element-grid">
+                        <div class="element-card selected" data-element="H">
+                            <div class="element-symbol">H</div>
+                            <div class="element-name">水素</div>
+                        </div>
+                        <div class="element-card" data-element="C">
+                            <div class="element-symbol">C</div>
+                            <div class="element-name">炭素</div>
+                        </div>
+                        <div class="element-card" data-element="N">
+                            <div class="element-symbol">N</div>
+                            <div class="element-name">窒素</div>
+                        </div>
+                        <div class="element-card" data-element="O">
+                            <div class="element-symbol">O</div>
+                            <div class="element-name">酸素</div>
+                        </div>
+                        <div class="element-card" data-element="F">
+                            <div class="element-symbol">F</div>
+                            <div class="element-name">フッ素</div>
+                        </div>
+                        <div class="element-card" data-element="Na">
+                            <div class="element-symbol">Na</div>
+                            <div class="element-name">ナトリウム</div>
+                        </div>
+                        <div class="element-card" data-element="Cl">
+                            <div class="element-symbol">Cl</div>
+                            <div class="element-name">塩素</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">分子テンプレート</h3>
+                    <div class="molecule-templates">
+                        <div class="molecule-card" data-molecule="H2O">
+                            <div class="molecule-icon">💧</div>
+                            <div class="molecule-name">水</div>
+                            <div class="molecule-formula">H₂O</div>
+                        </div>
+                        <div class="molecule-card" data-molecule="CH4">
+                            <div class="molecule-icon">🔥</div>
+                            <div class="molecule-name">メタン</div>
+                            <div class="molecule-formula">CH₄</div>
+                        </div>
+                        <div class="molecule-card" data-molecule="NH3">
+                            <div class="molecule-icon">🧪</div>
+                            <div class="molecule-name">アンモニア</div>
+                            <div class="molecule-formula">NH₃</div>
+                        </div>
+                        <div class="molecule-card" data-molecule="NaCl">
+                            <div class="molecule-icon">🧂</div>
+                            <div class="molecule-name">塩化ナトリウム</div>
+                            <div class="molecule-formula">NaCl</div>
+                        </div>
+                        <div class="molecule-card" data-molecule="O2">
+                            <div class="molecule-icon">💨</div>
+                            <div class="molecule-name">酸素</div>
+                            <div class="molecule-formula">O₂</div>
+                        </div>
+                        <div class="molecule-card" data-molecule="CO2">
+                            <div class="molecule-icon">☁️</div>
+                            <div class="molecule-name">二酸化炭素</div>
+                            <div class="molecule-formula">CO₂</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">アクション</h3>
+                    <button class="btn btn-block btn-info" id="optimize-geometry">
+                        <span class="btn-icon">⚡</span>分子構造を最適化
+                    </button>
+                    <button class="btn btn-block" id="export-model">
+                        <span class="btn-icon">💾</span>モデルをエクスポート
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- サイドパネル: 化学反応 -->
+        <div class="side-panel" id="reaction-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">
+                    化学反応シミュレーション
+                    <button class="close-panel" id="close-reaction-panel">×</button>
+                </h2>
+            </div>
+            <div class="panel-content">
+                <div class="panel-section">
+                    <h3 class="section-title">反応を選択</h3>
+                    <div class="reaction-cards">
+                        <div class="reaction-card selected" data-reaction="acid-base">
+                            <div class="reaction-icon">🧪</div>
+                            <div class="reaction-name">酸塩基反応</div>
+                        </div>
+                        <div class="reaction-card" data-reaction="redox">
+                            <div class="reaction-icon">⚡</div>
+                            <div class="reaction-name">酸化還元反応</div>
+                        </div>
+                        <div class="reaction-card" data-reaction="combustion">
+                            <div class="reaction-icon">🔥</div>
+                            <div class="reaction-name">燃焼反応</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">反応式</h3>
+                    <div class="reaction-equation" id="reaction-equation">
+                        HCl + NaOH → NaCl + H₂O
+                    </div>
+                    
+                    <div class="progress-track">
+                        <div class="progress-thumb" id="reaction-progress"></div>
+                    </div>
+                    <div class="reaction-label" id="reaction-step-label">
+                        反応開始前
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">再生コントロール</h3>
+                    <div class="reaction-controls">
+                        <button class="btn btn-block btn-success" id="start-reaction">
+                            <span class="btn-icon">▶️</span>反応を開始
+                        </button>
+                        <button class="btn btn-block btn-warning" id="pause-reaction">
+                            <span class="btn-icon">⏸️</span>一時停止
+                        </button>
+                        <button class="btn btn-block" id="reset-reaction">
+                            <span class="btn-icon">🔄</span>リセット
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">エネルギープロファイル</h3>
+                    <div class="energy-diagram" id="energy-diagram" style="height: 150px; background-color: #f8f9fa; border-radius: 8px; position: relative;">
+                        <!-- JavaScriptで動的に生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- サイドパネル: 探索 -->
+        <div class="side-panel" id="explore-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">
+                    分子探索
+                    <button class="close-panel" id="close-explore-panel">×</button>
+                </h2>
+            </div>
+            <div class="panel-content">
+                <div class="panel-section">
+                    <h3 class="section-title">表示オプション</h3>
+                    <button class="btn btn-block" id="toggle-orbitals">
+                        <span class="btn-icon">🔄</span>電子軌道を表示/非表示
+                    </button>
+                    <button class="btn btn-block" id="toggle-charges">
+                        <span class="btn-icon">⚡</span>電荷分布を表示
+                    </button>
+                    <button class="btn btn-block" id="toggle-bonds">
+                        <span class="btn-icon">🔗</span>結合タイプを表示
+                    </button>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">分子特性</h3>
+                    <div class="property-list" id="property-list">
+                        <div class="property-item">
+                            <div class="property-name">分子式:</div>
+                            <div class="property-value" id="formula">-</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-name">分子量:</div>
+                            <div class="property-value" id="molecular-weight">-</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-name">極性:</div>
+                            <div class="property-value" id="polarity">-</div>
+                        </div>
+                        <div class="property-item">
+                            <div class="property-name">結合数:</div>
+                            <div class="property-value" id="bond-count">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">エネルギー準位</h3>
+                    <div class="energy-levels" id="energy-levels" style="height: 150px; background-color: #f8f9fa; border-radius: 8px; position: relative;">
+                        <!-- JavaScriptで動的に生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- サイドパネル: ビュー設定 -->
+        <div class="side-panel" id="view-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">
+                    ビュー設定
+                    <button class="close-panel" id="close-view-panel">×</button>
+                </h2>
+            </div>
+            <div class="panel-content">
+                <div class="panel-section">
+                    <h3 class="section-title">表示モード</h3>
+                    <button class="btn btn-block" id="toggle-3d-2d">
+                        <span class="btn-icon">🔄</span>3D/2D切り替え
+                    </button>
+                    <button class="btn btn-block" id="reset-camera">
+                        <span class="btn-icon">🔍</span>カメラをリセット
+                    </button>
+                    <button class="btn btn-block" id="toggle-labels">
+                        <span class="btn-icon">🏷️</span>ラベル表示切替
+                    </button>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">スタイル設定</h3>
+                    <div class="style-options">
+                        <button class="btn btn-block" id="style-ball-stick">
+                            ボール＆スティックモデル
+                        </button>
+                        <button class="btn btn-block" id="style-space-fill">
+                            スペースフィルモデル
+                        </button>
+                        <button class="btn btn-block" id="style-wireframe">
+                            ワイヤーフレームモデル
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3 class="section-title">背景設定</h3>
+                    <div class="background-options">
+                        <button class="btn btn-block" id="bg-dark">
+                            ダーク背景
+                        </button>
+                        <button class="btn btn-block" id="bg-light">
+                            ライト背景
+                        </button>
+                        <button class="btn btn-block" id="bg-gradient">
+                            グラデーション背景
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- インストラクションオーバーレイ -->
+        <div class="instruction-overlay" id="instruction-overlay">
+            <div class="instruction-card">
+                <button class="instruction-close" id="close-instructions">×</button>
+                <h2 class="instruction-title">分子構築ガイド</h2>
+                
+                <div class="instruction-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3 class="step-title">元素を選択</h3>
+                        <p class="step-description">左側パネルから使用したい元素をクリックして選択します。水素、炭素、酸素など様々な元素が選べます。</p>
+                    </div>
+                </div>
+                
+                <div class="instruction-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3 class="step-title">原子を配置</h3>
+                        <p class="step-description">キャンバス上の任意の位置をクリックすると、選択した元素の原子が配置されます。</p>
+                    </div>
+                </div>
+                
+                <div class="instruction-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3 class="step-title">結合を作成</h3>
+                        <p class="step-description">下部ドックから「結合」ツールを選択し、最初の原子をクリック→次の原子をクリックすると結合が作成されます。</p>
+                    </div>
+                </div>
+                
+                <div class="instruction-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3 class="step-title">分子を操作</h3>
+                        <p class="step-description">マウスをドラッグすると分子が回転します。スクロールで拡大・縮小できます。原子を選択してドラッグすると移動できます。</p>
+                    </div>
+                </div>
+                
+                <div class="instruction-step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h3 class="step-title">テンプレートを使用</h3>
+                        <p class="step-description">よく使う分子は「分子テンプレート」から選択するだけで簡単に配置できます。</p>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary btn-block" id="start-tour">
+                    ツアーを開始
+                </button>
+                <button class="btn btn-secondary btn-block" id="skip-instructions">
+                    スキップして始める
+                </button>
+            </div>
+        </div>
+        
+        <!-- ツアーポップアップ -->
+        <div class="tour-popup" id="tour-popup">
+            <h4 class="tour-title">ツールバー</h4>
+            <p class="tour-content">
+                これがメインツールバーです。各機能にアクセスするためのボタンが並んでいます。
+            </p>
+            <div class="tour-actions">
+                <button class="btn btn-sm" id="tour-prev">前へ</button>
+                <button class="btn btn-primary btn-sm" id="tour-next">次へ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
