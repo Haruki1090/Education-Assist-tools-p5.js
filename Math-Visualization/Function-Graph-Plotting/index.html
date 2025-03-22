@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>関数グラフ描画ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .canvas-container {
+            flex: 1;
+            min-width: 600px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+        .controls {
+            flex: 0 0 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 0;
+            font-size: 18px;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .range-value {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
+            margin-left: 10px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            background-color: white;
+        }
+        .function-display {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+        .info-panel {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #3498db;
+        }
+        .function-info {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #eefaff;
+            border-radius: 4px;
+        }
+        .checkbox-group {
+            margin-bottom: 10px;
+        }
+        .checkbox-group label {
+            display: inline;
+            font-weight: normal;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+        .checkbox-group input[type="checkbox"] {
+            vertical-align: middle;
+        }
+        .key-point {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .grid-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .grid-controls button {
+            padding: 5px 10px;
+            margin: 0;
+        }
+        .secondary-function {
+            opacity: 0.6;
+        }
+        .derivative-controls {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f9ff;
+            border-radius: 4px;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-button {
+            padding: 8px 15px;
+            background-color: #f5f5f5;
+            border: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 2px;
+            cursor: pointer;
+        }
+        .tab-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .zoom-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+        .zoom-controls button {
+            padding: 3px 8px;
+            margin: 0 2px;
+            font-size: 14px;
+        }
+        .parameter-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .parameter-group label {
+            width: 60px;
+            margin: 0;
+        }
+        .parameter-group input[type="range"] {
+            flex: 1;
+            margin: 0 10px;
+        }
+        .parameter-value {
+            width: 40px;
+            text-align: right;
+        }
+        .animate-button {
+            background-color: #27ae60;
+        }
+        .animate-button:hover {
+            background-color: #219955;
+        }
+        .animate-button.active {
+            background-color: #e74c3c;
+        }
+        .animate-button.active:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>関数グラフ描画ツール</h1>
+        </header>
+        <div class="content">
+            <div class="canvas-container" id="canvas-container">
+                <div class="tooltip" id="tooltip"></div>
+                <div class="zoom-controls">
+                    <button id="zoomIn">+</button>
+                    <button id="zoomOut">-</button>
+                    <button id="resetView">Reset</button>
+                </div>
+            </div>
+            <div class="controls">
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="function-tab">関数</button>
+                    <button class="tab-button" data-tab="appearance-tab">表示設定</button>
+                    <button class="tab-button" data-tab="analysis-tab">分析</button>
+                </div>
+                
+                <div class="tab-content active" id="function-tab">
+                    <div class="control-group">
+                        <h2>関数の種類</h2>
+                        <select id="functionType">
+                            <option value="linear">一次関数 (y = ax + b)</option>
+                            <option value="quadratic">二次関数 (y = ax² + bx + c)</option>
+                            <option value="cubic">三次関数 (y = ax³ + bx² + cx + d)</option>
+                            <option value="sine">正弦関数 (y = a*sin(bx + c) + d)</option>
+                            <option value="cosine">余弦関数 (y = a*cos(bx + c) + d)</option>
+                            <option value="exponential">指数関数 (y = a*e^(bx) + c)</option>
+                            <option value="logarithm">対数関数 (y = a*log(bx) + c)</option>
+                            <option value="power">累乗関数 (y = a*x^b + c)</option>
+                            <option value="custom">カスタム関数</option>
+                        </select>
+                        
+                        <div class="function-display" id="functionDisplay">y = x</div>
+                        
+                        <div id="customFunctionInput" style="display: none;">
+                            <label for="customFunction">カスタム関数 (xを変数として使用):</label>
+                            <input type="text" id="customFunction" style="width: 100%; margin-bottom: 10px;" placeholder="例: 2*sin(x) + x^2/10">
+                            <button id="applyCustom">適用</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group" id="parameterControls">
+                        <!-- パラメータコントロールが動的に生成されます -->
+                    </div>
+                    
+                    <div class="control-group">
+                        <h2>アニメーション</h2>
+                        <button id="animateButton" class="animate-button">アニメーション開始</button>
+                        <select id="animateParameter" style="margin-top: 10px;">
+                            <option value="a">パラメータ a</option>
+                            <option value="b">パラメータ b</option>
+                            <option value="c">パラメータ c</option>
+                            <option value="d">パラメータ d</option>
+                        </select>
+                    </div>
+                    
+                    <div class="function-info" id="functionInfo">
+                        <!-- 関数の説明が動的に生成されます -->
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="appearance-tab">
+                    <div class="control-group">
+                        <h2>グラフ設定</h2>
+                        <div class="grid-controls">
+                            <label>グリッド間隔:</label>
+                            <button id="gridSmaller">-</button>
+                            <span id="gridSizeDisplay">1</span>
+                            <button id="gridLarger">+</button>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showGrid" checked>
+                            <label for="showGrid">グリッド表示</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showAxis" checked>
+                            <label for="showAxis">軸の表示</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showLabels" checked>
+                            <label for="showLabels">ラベル表示</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showPoints">
+                            <label for="showPoints">ポイント表示</label>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h2>表示範囲</h2>
+                        <div class="parameter-group">
+                            <label for="xMinRange">X最小:</label>
+                            <input type="range" id="xMinRange" min="-20" max="0" value="-10" step="1">
+                            <span id="xMinValue" class="parameter-value">-10</span>
+                        </div>
+                        <div class="parameter-group">
+                            <label for="xMaxRange">X最大:</label>
+                            <input type="range" id="xMaxRange" min="0" max="20" value="10" step="1">
+                            <span id="xMaxValue" class="parameter-value">10</span>
+                        </div>
+                        <div class="parameter-group">
+                            <label for="yMinRange">Y最小:</label>
+                            <input type="range" id="yMinRange" min="-20" max="0" value="-10" step="1">
+                            <span id="yMinValue" class="parameter-value">-10</span>
+                        </div>
+                        <div class="parameter-group">
+                            <label for="yMaxRange">Y最大:</label>
+                            <input type="range" id="yMaxRange" min="0" max="20" value="10" step="1">
+                            <span id="yMaxValue" class="parameter-value">10</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="analysis-tab">
+                    <div class="control-group">
+                        <h2>重要ポイント</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showIntercepts">
+                            <label for="showIntercepts">交点表示</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showExtrema">
+                            <label for="showExtrema">極値表示</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showInflection">
+                            <label for="showInflection">変曲点表示</label>
+                        </div>
+                    </div>
+                    
+                    <div class="derivative-controls">
+                        <h2>導関数</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showDerivative">
+                            <label for="showDerivative">一次導関数表示</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showSecondDerivative">
+                            <label for="showSecondDerivative">二次導関数表示</label>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h2>値の計算</h2>
+                        <div style="display: flex; margin-bottom: 10px;">
+                            <label for="calculateX" style="width: 60px;">X = </label>
+                            <input type="number" id="calculateX" value="0" step="0.1" style="flex: 1;">
+                            <button id="calculateBtn" style="margin-left: 10px;">計算</button>
+                        </div>
+                        <div id="calculateResult" style="padding: 10px; background-color: #f0f0f0; border-radius: 4px;">
+                            結果がここに表示されます
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-panel">
+                    <p><strong>使用方法：</strong></p>
+                    <p>・関数の種類を選択し、スライダーでパラメータを調整します</p>
+                    <p>・グラフ上をドラッグして移動、マウスホイールでズームできます</p>
+                    <p>・ポイントにカーソルを合わせると座標が表示されます</p>
+                    <p>・「分析」タブで各種解析や導関数の表示ができます</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let canvas;
+        let functionType = 'linear';
+        let params = {
+            a: 1,
+            b: 0,
+            c: 0,
+            d: 0
+        };
+        let customFunctionText = '';
+        let gridSize = 1;
+        let xMin = -10;
+        let xMax = 10;
+        let yMin = -10;
+        let yMax = 10;
+        let offsetX = 0;
+        let offsetY = 0;
+        let zoomLevel = 1;
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let showGrid = true;
+        let showAxis = true;
+        let showLabels = true;
+        let showPoints = false;
+        let showIntercepts = false;
+        let showExtrema = false;
+        let showInflection = false;
+        let showDerivative = false;
+        let showSecondDerivative = false;
+        let tooltipElement;
+        let isAnimating = false;
+        let animateParameter = 'a';
+        let animationValue = 0;
+        let animationDirection = 1;
+        
+        // Setup function
+        function setup() {
+            const canvasContainer = document.getElementById('canvas-container');
+            canvas = createCanvas(canvasContainer.offsetWidth, 400);
+            canvas.parent(canvasContainer);
+            
+            tooltipElement = document.getElementById('tooltip');
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Initial setup
+            updateFunctionDisplay();
+            updateFunctionInfo();
+            updateParameterControls();
+        }
+        
+        // Draw function - called continuously
+        function draw() {
+            background(255);
+            
+            // Apply animation if active
+            if (isAnimating) {
+                animationValue += 0.05 * animationDirection;
+                if (animationValue > 2) {
+                    animationDirection = -1;
+                } else if (animationValue < -2) {
+                    animationDirection = 1;
+                }
+                params[animateParameter] = params[animateParameter] + animationValue * 0.01;
+                updateFunctionDisplay();
+            }
+            
+            // Apply transformations for pan and zoom
+            translate(width / 2 + offsetX, height / 2 + offsetY);
+            scale(zoomLevel);
+            
+            // Draw coordinate system
+            drawCoordinateSystem();
+            
+            // Draw function graph
+            drawFunctionGraph();
+            
+            // Draw derivative graphs if enabled
+            if (showDerivative || showSecondDerivative) {
+                drawDerivatives();
+            }
+            
+            // Draw important points
+            drawImportantPoints();
+        }
+        
+        // Draw the coordinate system (grid, axes, labels)
+        function drawCoordinateSystem() {
+            const scaledXMin = (-width / 2 / zoomLevel) - offsetX / zoomLevel + xMin;
+            const scaledXMax = (width / 2 / zoomLevel) - offsetX / zoomLevel + xMin;
+            const scaledYMin = (height / 2 / zoomLevel) - offsetY / zoomLevel + yMin;
+            const scaledYMax = (-height / 2 / zoomLevel) - offsetY / zoomLevel + yMin;
+            
+            // Draw grid
+            if (showGrid) {
+                stroke(230);
+                strokeWeight(1 / zoomLevel);
+                
+                // Vertical grid lines
+                const xStart = Math.floor(scaledXMin / gridSize) * gridSize;
+                const xEnd = Math.ceil(scaledXMax / gridSize) * gridSize;
+                for (let x = xStart; x <= xEnd; x += gridSize) {
+                    if (Math.abs(x) < 0.001) continue; // Skip origin
+                    line(
+                        mapX(x), mapY(scaledYMin),
+                        mapX(x), mapY(scaledYMax)
+                    );
+                }
+                
+                // Horizontal grid lines
+                const yStart = Math.floor(scaledYMin / gridSize) * gridSize;
+                const yEnd = Math.ceil(scaledYMax / gridSize) * gridSize;
+                for (let y = yStart; y <= yEnd; y += gridSize) {
+                    if (Math.abs(y) < 0.001) continue; // Skip origin
+                    line(
+                        mapX(scaledXMin), mapY(y),
+                        mapX(scaledXMax), mapY(y)
+                    );
+                }
+            }
+            
+            // Draw axes
+            if (showAxis) {
+                stroke(0);
+                strokeWeight(1.5 / zoomLevel);
+                
+                // X-axis
+                line(mapX(scaledXMin), mapY(0), mapX(scaledXMax), mapY(0));
+                
+                // Y-axis
+                line(mapX(0), mapY(scaledYMin), mapX(0), mapY(scaledYMax));
+                
+                // Draw arrow tips
+                drawArrow(mapX(scaledXMax), mapY(0), 0, 10 / zoomLevel);
+                drawArrow(mapX(0), mapY(scaledYMax), -PI/2, 10 / zoomLevel);
+            }
+            
+            // Draw labels
+            if (showLabels) {
+                fill(0);
+                noStroke();
+                textSize(12 / zoomLevel);
+                textAlign(CENTER, TOP);
+                
+                // X-axis labels
+                const xStart = Math.floor(scaledXMin / gridSize) * gridSize;
+                const xEnd = Math.ceil(scaledXMax / gridSize) * gridSize;
+                for (let x = xStart; x <= xEnd; x += gridSize) {
+                    if (x !== 0) { // Skip origin
+                        text(x.toFixed(1), mapX(x), mapY(0) + 5 / zoomLevel);
+                    }
+                }
+                
+                // Y-axis labels
+                textAlign(RIGHT, CENTER);
+                const yStart = Math.floor(scaledYMin / gridSize) * gridSize;
+                const yEnd = Math.ceil(scaledYMax / gridSize) * gridSize;
+                for (let y = yStart; y <= yEnd; y += gridSize) {
+                    if (y !== 0) { // Skip origin
+                        text(y.toFixed(1), mapX(0) - 5 / zoomLevel, mapY(y));
+                    }
+                }
+                
+                // Axis labels
+                textAlign(CENTER, BOTTOM);
+                text("x", mapX(scaledXMax) - 15 / zoomLevel, mapY(0) - 5 / zoomLevel);
+                textAlign(LEFT, CENTER);
+                text("y", mapX(0) + 5 / zoomLevel, mapY(scaledYMax) + 15 / zoomLevel);
+                
+                // Origin label
+                textAlign(RIGHT, TOP);
+                text("O", mapX(0) - 5 / zoomLevel, mapY(0) + 5 / zoomLevel);
+            }
+        }
+        
+        // Draw arrow tip
+        function drawArrow(x, y, angle, size) {
+            push();
+            translate(x, y);
+            rotate(angle);
+            beginShape();
+            vertex(0, 0);
+            vertex(-size, -size/2);
+            vertex(-size, size/2);
+            endShape(CLOSE);
+            pop();
+        }
+        
+        // Draw the function graph
+        function drawFunctionGraph() {
+            stroke(41, 128, 185);
+            strokeWeight(2 / zoomLevel);
+            noFill();
+            
+            const scaledXMin = (-width / 2 / zoomLevel) - offsetX / zoomLevel + xMin;
+            const scaledXMax = (width / 2 / zoomLevel) - offsetX / zoomLevel + xMin;
+            
+            beginShape();
+            
+            // Use more points for detailed curves
+            const resolution = width / 2;
+            let prevY = null;
+            let discontinuity = false;
+            
+            for (let i = 0; i <= resolution; i++) {
+                const x = map(i, 0, resolution, scaledXMin, scaledXMax);
+                const y = evaluateFunction(x);
+                
+                // Check for discontinuities and very large values
+                if (isNaN(y) || Math.abs(y) > 1000) {
+                    if (!discontinuity) {
+                        endShape();
+                        discontinuity = true;
+                    }
+                    continue;
+                }
+                
+                // Check for steep changes (another type of discontinuity)
+                if (prevY !== null && Math.abs(y - prevY) > 20) {
+                    if (!discontinuity) {
+                        endShape();
+                        discontinuity = true;
+                    }
+                    prevY = y;
+                    continue;
+                }
+                
+                if (discontinuity) {
+                    beginShape();
+                    discontinuity = false;
+                }
+                
+                vertex(mapX(x), mapY(y));
+                prevY = y;
+            }
+            
+            endShape();
+            
+            // Draw points on the curve if enabled
+            if (showPoints) {
+                for (let i = 0; i <= resolution; i += 10) {
+                    const x = map(i, 0, resolution, scaledXMin, scaledXMax);
+                    const y = evaluateFunction(x);
+                    
+                    if (!isNaN(y) && Math.abs(y) <= 1000) {
+                        fill(41, 128, 185);
+                        noStroke();
+                        circle(mapX(x), mapY(y), 5 / zoomLevel);
+                    }
+                }
+            }
+        }
+        
+        // Draw derivative graphs
+        function drawDerivatives() {
+            const scaledXMin = (-width / 2 / zoomLevel) - offsetX / zoomLevel + xMin;
+            const scaledXMax = (width / 2 / zoomLevel) - offsetX / zoomLevel + xMin;
+            const resolution = width / 2;
+            
+            // First derivative
+            if (showDerivative) {
+                stroke(231, 76, 60);
+                strokeWeight(1.5 / zoomLevel);
+                noFill();
+                
+                beginShape();
+                let prevY = null;
+                let discontinuity = false;
+                
+                for (let i = 0; i <= resolution; i++) {
+                    const x = map(i, 0, resolution, scaledXMin, scaledXMax);
+                    const h = 0.0001; // Small step for numerical differentiation
+                    const dy = evaluateFunction(x + h) - evaluateFunction(x);
+                    const y = dy / h; // Approximate derivative
+                    
+                    if (isNaN(y) || Math.abs(y) > 1000) {
+                        if (!discontinuity) {
+                            endShape();
+                            discontinuity = true;
+                        }
+                        continue;
+                    }
+                    
+                    if (prevY !== null && Math.abs(y - prevY) > 20) {
+                        if (!discontinuity) {
+                            endShape();
+                            discontinuity = true;
+                        }
+                        prevY = y;
+                        continue;
+                    }
+                    
+                    if (discontinuity) {
+                        beginShape();
+                        discontinuity = false;
+                    }
+                    
+                    vertex(mapX(x), mapY(y));
+                    prevY = y;
+                }
+                
+                endShape();
+            }
+            
+            // Second derivative
+            if (showSecondDerivative) {
+                stroke(142, 68, 173);
+                strokeWeight(1.5 / zoomLevel);
+                noFill();
+                
+                beginShape();
+                let prevY = null;
+                let discontinuity = false;
+                
+                for (let i = 0; i <= resolution; i++) {
+                    const x = map(i, 0, resolution, scaledXMin, scaledXMax);
+                    const h = 0.0001; // Small step for numerical differentiation
+                    const y1 = evaluateFunction(x - h);
+                    const y2 = evaluateFunction(x);
+                    const y3 = evaluateFunction(x + h);
+                    const y = (y3 - 2 * y2 + y1) / (h * h); // Approximate second derivative
+                    
+                    if (isNaN(y) || Math.abs(y) > 1000) {
+                        if (!discontinuity) {
+                            endShape();
+                            discontinuity = true;
+                        }
+                        continue;
+                    }
+                    
+                    if (prevY !== null && Math.abs(y - prevY) > 20) {
+                        if (!discontinuity) {
+                            endShape();
+                            discontinuity = true;
+                        }
+                        prevY = y;
+                        continue;
+                    }
+                    
+                    if (discontinuity) {
+                        beginShape();
+                        discontinuity = false;
+                    }
+                    
+                    vertex(mapX(x), mapY(y));
+                    prevY = y;
+                }
+                
+                endShape();
+            }
+        }
+        
+        // Draw important points on the graph
+        function drawImportantPoints() {
+            // X-intercepts (roots)
+            if (showIntercepts) {
+                const roots = findRoots();
+                fill(231, 76, 60);
+                noStroke();
+                
+                for (const x of roots) {
+                    if (x >= xMin && x <= xMax) {
+                        circle(mapX(x), mapY(0), 8 / zoomLevel);
+                    }
+                }
+                
+                // Y-intercept
+                const y0 = evaluateFunction(0);
+                if (!isNaN(y0) && Math.abs(y0) < 1000 && y0 >= yMin && y0 <= yMax) {
+                    fill(41, 128, 185);
+                    circle(mapX(0), mapY(y0), 8 / zoomLevel);
+                }
+            }
+            
+            // Extrema (maxima/minima)
+            if (showExtrema) {
+                const extrema = findExtrema();
+                
+                for (const point of extrema) {
+                    if (point.x >= xMin && point.x <= xMax && 
+                        point.y >= yMin && point.y <= yMax) {
+                        
+                        if (point.type === 'maximum') {
+                            fill(46, 204, 113);
+                        } else {
+                            fill(155, 89, 182);
+                        }
+                        
+                        noStroke();
+                        circle(mapX(point.x), mapY(point.y), 8 / zoomLevel);
+                    }
+                }
+            }
+            
+            // Inflection points
+            if (showInflection) {
+                const inflectionPoints = findInflectionPoints();
+                
+                fill(52, 152, 219);
+                noStroke();
+                
+                for (const point of inflectionPoints) {
+                    if (point.x >= xMin && point.x <= xMax && 
+                        point.y >= yMin && point.y <= yMax) {
+                        
+                        circle(mapX(point.x), mapY(point.y), 8 / zoomLevel);
+                    }
+                }
+            }
+        }
+        
+        // Map x coordinate from math space to screen space
+        function mapX(x) {
+            return map(x, xMin, xMax, -width / 2, width / 2);
+        }
+        
+        // Map y coordinate from math space to screen space (y-axis is inverted)
+        function mapY(y) {
+            return map(y, yMin, yMax, height / 2, -height / 2);
+        }
+        
+        // Inverse map from screen to math space for x
+        function screenToMathX(x) {
+            const screenX = x - width / 2 - offsetX;
+            return map(screenX, -width / 2, width / 2, xMin, xMax) / zoomLevel;
+        }
+        
+        // Inverse map from screen to math space for y
+        function screenToMathY(y) {
+            const screenY = y - height / 2 - offsetY;
+            return map(screenY, height / 2, -height / 2, yMin, yMax) / zoomLevel;
+        }
+        
+        // Evaluate the function at a given x value
+        function evaluateFunction(x) {
+            let result;
+            
+            try {
+                switch (functionType) {
+                    case 'linear':
+                        result = params.a * x + params.b;
+                        break;
+                    case 'quadratic':
+                        result = params.a * x * x + params.b * x + params.c;
+                        break;
+                    case 'cubic':
+                        result = params.a * x * x * x + params.b * x * x + params.c * x + params.d;
+                        break;
+                    case 'sine':
+                        result = params.a * Math.sin(params.b * x + params.c) + params.d;
+                        break;
+                    case 'cosine':
+                        result = params.a * Math.cos(params.b * x + params.c) + params.d;
+                        break;
+                    case 'exponential':
+                        result = params.a * Math.exp(params.b * x) + params.c;
+                        break;
+                    case 'logarithm':
+                        if (params.b * x <= 0) return NaN;
+                        result = params.a * Math.log(params.b * x) + params.c;
+                        break;
+                    case 'power':
+                        if (x < 0 && !Number.isInteger(params.b)) return NaN;
+                        result = params.a * Math.pow(x, params.b) + params.c;
+                        break;
+                    case 'custom':
+                        if (!customFunctionText) return x;
+                        const scope = { x: x };
+                        result = math.evaluate(customFunctionText, scope);
+                        break;
+                }
+            } catch (e) {
+                console.error("Error evaluating function:", e);
+                return NaN;
+            }
+            
+            return result;
+        }
+        
+        // Mouse wheel event for zooming
+        function mouseWheel(event) {
+            if (isMouseOverCanvas()) {
+                const zoomFactor = 1.1;
+                if (event.delta > 0) {
+                    zoomLevel /= zoomFactor;
+                } else {
+                    zoomLevel *= zoomFactor;
+                }
+                zoomLevel = constrain(zoomLevel, 0.1, 10);
+                return false; // Prevent default scrolling
+            }
+        }
+        
+        // Mouse pressed event for dragging
+        function mousePressed() {
+            if (isMouseOverCanvas()) {
+                isDragging = true;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+            }
+        }
+        
+        // Mouse dragged event for panning
+        function mouseDragged() {
+            if (isDragging) {
+                offsetX += mouseX - lastMouseX;
+                offsetY += mouseY - lastMouseY;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+            }
+        }
+        
+        // Mouse released event
+        function mouseReleased() {
+            isDragging = false;
+        }
+        
+        // Mouse moved event for tooltips
+        function mouseMoved() {
+            if (isMouseOverCanvas()) {
+                const mathX = screenToMathX(mouseX);
+                const mathY = screenToMathY(mouseY);
+                const funcY = evaluateFunction(mathX);
+                
+                // Check if mouse is near the function curve
+                if (Math.abs(mathY - funcY) < 0.5 / zoomLevel) {
+                    showTooltip(mouseX, mouseY, `(${mathX.toFixed(2)}, ${funcY.toFixed(2)})`);
+                } else {
+                    hideTooltip();
+                }
+            } else {
+                hideTooltip();
+            }
+        }
+        
+        // Check if mouse is over canvas
+        function isMouseOverCanvas() {
+            const canvasRect = canvas.elt.getBoundingClientRect();
+            return mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height;
+        }
+        
+        // Show tooltip at specified position
+        function showTooltip(x, y, text) {
+            tooltipElement.style.left = `${x + 10}px`;
+            tooltipElement.style.top = `${y + 10}px`;
+            tooltipElement.textContent = text;
+            tooltipElement.style.display = 'block';
+        }
+        
+        // Hide tooltip
+        function hideTooltip() {
+            tooltipElement.style.display = 'none';
+        }
+        
+        // Update the function display
+        function updateFunctionDisplay() {
+            const display = document.getElementById('functionDisplay');
+            let formula = '';
+            
+            switch (functionType) {
+                case 'linear':
+                    formula = `y = ${params.a.toFixed(2)}x ${params.b >= 0 ? '+ ' + params.b.toFixed(2) : '- ' + Math.abs(params.b).toFixed(2)}`;
+                    break;
+                case 'quadratic':
+                    formula = `y = ${params.a.toFixed(2)}x² ${params.b >= 0 ? '+ ' + params.b.toFixed(2) : '- ' + Math.abs(params.b).toFixed(2)}x ${params.c >= 0 ? '+ ' + params.c.toFixed(2) : '- ' + Math.abs(params.c).toFixed(2)}`;
+                    break;
+                case 'cubic':
+                    formula = `y = ${params.a.toFixed(2)}x³ ${params.b >= 0 ? '+ ' + params.b.toFixed(2) : '- ' + Math.abs(params.b).toFixed(2)}x² ${params.c >= 0 ? '+ ' + params.c.toFixed(2) : '- ' + Math.abs(params.c).toFixed(2)}x ${params.d >= 0 ? '+ ' + params.d.toFixed(2) : '- ' + Math.abs(params.d).toFixed(2)}`;
+                    break;
+                case 'sine':
+                    formula = `y = ${params.a.toFixed(2)}sin(${params.b.toFixed(2)}x ${params.c >= 0 ? '+ ' + params.c.toFixed(2) : '- ' + Math.abs(params.c).toFixed(2)}) ${params.d >= 0 ? '+ ' + params.d.toFixed(2) : '- ' + Math.abs(params.d).toFixed(2)}`;
+                    break;
+                case 'cosine':
+                    formula = `y = ${params.a.toFixed(2)}cos(${params.b.toFixed(2)}x ${params.c >= 0 ? '+ ' + params.c.toFixed(2) : '- ' + Math.abs(params.c).toFixed(2)}) ${params.d >= 0 ? '+ ' + params.d.toFixed(2) : '- ' + Math.abs(params.d).toFixed(2)}`;
+                    break;
+                case 'exponential':
+                    formula = `y = ${params.a.toFixed(2)}e^(${params.b.toFixed(2)}x) ${params.c >= 0 ? '+ ' + params.c.toFixed(2) : '- ' + Math.abs(params.c).toFixed(2)}`;
+                    break;
+                case 'logarithm':
+                    formula = `y = ${params.a.toFixed(2)}log(${params.b.toFixed(2)}x) ${params.c >= 0 ? '+ ' + params.c.toFixed(2) : '- ' + Math.abs(params.c).toFixed(2)}`;
+                    break;
+                case 'power':
+                    formula = `y = ${params.a.toFixed(2)}x^${params.b.toFixed(2)} ${params.c >= 0 ? '+ ' + params.c.toFixed(2) : '- ' + Math.abs(params.c).toFixed(2)}`;
+                    break;
+                case 'custom':
+                    formula = `y = ${customFunctionText || 'x'}`;
+                    break;
+            }
+            
+            display.textContent = formula;
+        }
+        
+        // Update function information
+        function updateFunctionInfo() {
+            const infoElement = document.getElementById('functionInfo');
+            let info = '';
+            
+            switch (functionType) {
+                case 'linear':
+                    info = `
+                        <h3>一次関数（Linear Function）</h3>
+                        <p>形式: y = ax + b</p>
+                        <ul>
+                            <li><strong>a</strong> - 傾き (slope)</li>
+                            <li><strong>b</strong> - y切片 (y-intercept)</li>
+                        </ul>
+                        <p>特徴: 一定の傾きを持つ直線です。aの値が正なら右上がり、負なら右下がりとなります。</p>
+                    `;
+                    break;
+                case 'quadratic':
+                    info = `
+                        <h3>二次関数（Quadratic Function）</h3>
+                        <p>形式: y = ax² + bx + c</p>
+                        <ul>
+                            <li><strong>a</strong> - 二次の係数 (開き具合と向き)</li>
+                            <li><strong>b</strong> - 一次の係数 (頂点の位置に影響)</li>
+                            <li><strong>c</strong> - 定数項 (y切片)</li>
+                        </ul>
+                        <p>特徴: 放物線を描きます。aが正なら上に凸、負なら下に凸になります。</p>
+                    `;
+                    break;
+                case 'cubic':
+                    info = `
+                        <h3>三次関数（Cubic Function）</h3>
+                        <p>形式: y = ax³ + bx² + cx + d</p>
+                        <ul>
+                            <li><strong>a</strong> - 三次の係数</li>
+                            <li><strong>b</strong> - 二次の係数</li>
+                            <li><strong>c</strong> - 一次の係数</li>
+                            <li><strong>d</strong> - 定数項</li>
+                        </ul>
+                        <p>特徴: 最大2つの変曲点を持ち、S字型のカーブを描くことがあります。</p>
+                    `;
+                    break;
+                case 'sine':
+                    info = `
+                        <h3>正弦関数（Sine Function）</h3>
+                        <p>形式: y = a·sin(bx + c) + d</p>
+                        <ul>
+                            <li><strong>a</strong> - 振幅 (amplitude)</li>
+                            <li><strong>b</strong> - 角速度/周期 (b = 2π/周期)</li>
+                            <li><strong>c</strong> - 位相シフト (phase shift)</li>
+                            <li><strong>d</strong> - 垂直シフト (vertical shift)</li>
+                        </ul>
+                        <p>特徴: 波形を描き、周期的に繰り返します。</p>
+                    `;
+                    break;
+                case 'cosine':
+                    info = `
+                        <h3>余弦関数（Cosine Function）</h3>
+                        <p>形式: y = a·cos(bx + c) + d</p>
+                        <ul>
+                            <li><strong>a</strong> - 振幅 (amplitude)</li>
+                            <li><strong>b</strong> - 角速度/周期 (b = 2π/周期)</li>
+                            <li><strong>c</strong> - 位相シフト (phase shift)</li>
+                            <li><strong>d</strong> - 垂直シフト (vertical shift)</li>
+                        </ul>
+                        <p>特徴: 正弦関数と同様の波形ですが、π/2だけ位相がずれています。</p>
+                    `;
+                    break;
+                case 'exponential':
+                    info = `
+                        <h3>指数関数（Exponential Function）</h3>
+                        <p>形式: y = a·e^(bx) + c</p>
+                        <ul>
+                            <li><strong>a</strong> - 係数</li>
+                            <li><strong>b</strong> - 成長/減衰率</li>
+                            <li><strong>c</strong> - 垂直シフト</li>
+                        </ul>
+                        <p>特徴: 常に増加または減少し、bが正なら指数的に増加、負なら減少します。</p>
+                    `;
+                    break;
+                case 'logarithm':
+                    info = `
+                        <h3>対数関数（Logarithmic Function）</h3>
+                        <p>形式: y = a·log(bx) + c</p>
+                        <ul>
+                            <li><strong>a</strong> - 係数</li>
+                            <li><strong>b</strong> - 水平伸縮</li>
+                            <li><strong>c</strong> - 垂直シフト</li>
+                        </ul>
+                        <p>特徴: x > 0の範囲でのみ定義され、徐々に増加または減少します。指数関数の逆関数です。</p>
+                    `;
+                    break;
+                case 'power':
+                    info = `
+                        <h3>累乗関数（Power Function）</h3>
+                        <p>形式: y = a·x^b + c</p>
+                        <ul>
+                            <li><strong>a</strong> - 係数</li>
+                            <li><strong>b</strong> - 指数</li>
+                            <li><strong>c</strong> - 垂直シフト</li>
+                        </ul>
+                        <p>特徴: bの値によって動作が大きく変わります。bが整数なら多項式、bが分数なら根関数となります。</p>
+                    `;
+                    break;
+                case 'custom':
+                    info = `
+                        <h3>カスタム関数（Custom Function）</h3>
+                        <p>数式を自由に入力できます。次の記法が使えます：</p>
+                        <ul>
+                            <li>基本演算: +, -, *, /, ^（累乗）</li>
+                            <li>関数: sin, cos, tan, exp, log, sqrt</li>
+                            <li>定数: pi, e</li>
+                        </ul>
+                        <p>例: 2*sin(x) + x^2/10</p>
+                    `;
+                    break;
+            }
+            
+            infoElement.innerHTML = info;
+        }
+        
+        // Update parameter controls based on function type
+        function updateParameterControls() {
+            const controlsContainer = document.getElementById('parameterControls');
+            controlsContainer.innerHTML = '';
+            
+            // Reset parameters to defaults
+            params = {
+                a: 1,
+                b: 0,
+                c: 0,
+                d: 0
+            };
+            
+            let html = '<h2>パラメータ設定</h2>';
+            
+            switch (functionType) {
+                case 'linear':
+                    html += createParameterSlider('a', -5, 5, 1, 0.1, '傾き');
+                    html += createParameterSlider('b', -5, 5, 0, 0.1, 'y切片');
+                    break;
+                case 'quadratic':
+                    html += createParameterSlider('a', -2, 2, 1, 0.1, '二次係数');
+                    html += createParameterSlider('b', -5, 5, 0, 0.1, '一次係数');
+                    html += createParameterSlider('c', -5, 5, 0, 0.1, '定数項');
+                    break;
+                case 'cubic':
+                    html += createParameterSlider('a', -1, 1, 1, 0.1, '三次係数');
+                    html += createParameterSlider('b', -2, 2, 0, 0.1, '二次係数');
+                    html += createParameterSlider('c', -3, 3, 0, 0.1, '一次係数');
+                    html += createParameterSlider('d', -5, 5, 0, 0.1, '定数項');
+                    break;
+                case 'sine':
+                    html += createParameterSlider('a', -5, 5, 1, 0.1, '振幅');
+                    html += createParameterSlider('b', 0.1, 5, 1, 0.1, '周波数');
+                    html += createParameterSlider('c', -3.14, 3.14, 0, 0.1, '位相');
+                    html += createParameterSlider('d', -5, 5, 0, 0.1, '垂直シフト');
+                    break;
+                case 'cosine':
+                    html += createParameterSlider('a', -5, 5, 1, 0.1, '振幅');
+                    html += createParameterSlider('b', 0.1, 5, 1, 0.1, '周波数');
+                    html += createParameterSlider('c', -3.14, 3.14, 0, 0.1, '位相');
+                    html += createParameterSlider('d', -5, 5, 0, 0.1, '垂直シフト');
+                    break;
+                case 'exponential':
+                    html += createParameterSlider('a', -5, 5, 1, 0.1, '係数');
+                    html += createParameterSlider('b', -2, 2, 1, 0.1, '成長率');
+                    html += createParameterSlider('c', -5, 5, 0, 0.1, '垂直シフト');
+                    break;
+                case 'logarithm':
+                    html += createParameterSlider('a', -5, 5, 1, 0.1, '係数');
+                    html += createParameterSlider('b', 0.1, 5, 1, 0.1, '水平伸縮');
+                    html += createParameterSlider('c', -5, 5, 0, 0.1, '垂直シフト');
+                    break;
+                case 'power':
+                    html += createParameterSlider('a', -5, 5, 1, 0.1, '係数');
+                    html += createParameterSlider('b', -5, 5, 2, 0.1, '指数');
+                    html += createParameterSlider('c', -5, 5, 0, 0.1, '垂直シフト');
+                    break;
+                case 'custom':
+                    // Custom function input is handled separately
+                    document.getElementById('customFunctionInput').style.display = 'block';
+                    break;
+            }
+            
+            if (functionType !== 'custom') {
+                document.getElementById('customFunctionInput').style.display = 'none';
+            }
+            
+            controlsContainer.innerHTML = html;
+            
+            // Add event listeners to all parameter sliders
+            document.querySelectorAll('.parameter-slider').forEach(slider => {
+                slider.addEventListener('input', function() {
+                    const param = this.getAttribute('data-param');
+                    const value = parseFloat(this.value);
+                    params[param] = value;
+                    document.getElementById(`${param}Value`).textContent = value.toFixed(1);
+                    updateFunctionDisplay();
+                });
+            });
+            
+            // Update animation parameter dropdown
+            const animateSelect = document.getElementById('animateParameter');
+            animateSelect.innerHTML = '';
+            
+            for (const param in params) {
+                const option = document.createElement('option');
+                option.value = param;
+                option.textContent = `パラメータ ${param}`;
+                animateSelect.appendChild(option);
+            }
+            
+            // Initial function display update
+            updateFunctionDisplay();
+        }
+        
+        // Create HTML for a parameter slider
+        function createParameterSlider(param, min, max, value, step, label) {
+            params[param] = value;
+            
+            return `
+                <div class="parameter-group">
+                    <label for="${param}Slider">${label} (${param}):</label>
+                    <input type="range" id="${param}Slider" class="parameter-slider" 
+                           data-param="${param}" min="${min}" max="${max}" 
+                           value="${value}" step="${step}">
+                    <span id="${param}Value" class="parameter-value">${value.toFixed(1)}</span>
+                </div>
+            `;
+        }
+        
+        // Find roots (x-intercepts) of the function
+        function findRoots() {
+            const roots = [];
+            const resolution = 1000;
+            const epsilon = 0.01;
+            
+            // Simple root finding by checking for sign changes
+            let prevY = evaluateFunction(xMin);
+            
+            for (let i = 1; i <= resolution; i++) {
+                const x = map(i, 0, resolution, xMin, xMax);
+                const y = evaluateFunction(x);
+                
+                // Check for sign change or zero
+                if (Math.abs(y) < epsilon || (prevY * y < 0)) {
+                    // Refine with bisection method
+                    const prevX = map(i - 1, 0, resolution, xMin, xMax);
+                    const root = refineRoot(prevX, x);
+                    
+                    // Add root if it's not a duplicate
+                    if (root !== null && !roots.some(r => Math.abs(r - root) < epsilon)) {
+                        roots.push(root);
+                    }
+                }
+                
+                prevY = isNaN(y) ? prevY : y;
+            }
+            
+            return roots;
+        }
+        
+        // Refine root using bisection method
+        function refineRoot(x1, x2) {
+            const maxIterations = 10;
+            const epsilon = 0.00001;
+            let a = x1;
+            let b = x2;
+            
+            for (let i = 0; i < maxIterations; i++) {
+                const mid = (a + b) / 2;
+                const fMid = evaluateFunction(mid);
+                
+                if (Math.abs(fMid) < epsilon) {
+                    return mid;
+                }
+                
+                const fA = evaluateFunction(a);
+                
+                if (fA * fMid < 0) {
+                    b = mid;
+                } else {
+                    a = mid;
+                }
+            }
+            
+            return (a + b) / 2;
+        }
+        
+        // Find extrema (maxima and minima)
+        function findExtrema() {
+            const extrema = [];
+            const resolution = 500;
+            const epsilon = 0.01;
+            
+            let prevDy = null;
+            
+            for (let i = 1; i < resolution; i++) {
+                const x = map(i, 0, resolution, xMin, xMax);
+                const h = (xMax - xMin) / resolution;
+                
+                // Calculate approximate derivative
+                const dy = (evaluateFunction(x + h) - evaluateFunction(x - h)) / (2 * h);
+                
+                // Check for sign change in derivative (potential extremum)
+                if (prevDy !== null && Math.abs(dy) < epsilon || (prevDy * dy < 0)) {
+                    // Refine with binary search
+                    const prevX = map(i - 1, 0, resolution, xMin, xMax);
+                    const extremumX = (prevX + x) / 2;
+                    
+                    // Calculate second derivative to determine type
+                    const y1 = evaluateFunction(extremumX - h);
+                    const y2 = evaluateFunction(extremumX);
+                    const y3 = evaluateFunction(extremumX + h);
+                    const d2y = (y3 - 2 * y2 + y1) / (h * h);
+                    
+                    const type = d2y < 0 ? 'maximum' : 'minimum';
+                    const extremumY = evaluateFunction(extremumX);
+                    
+                    // Add to list if not NaN
+                    if (!isNaN(extremumY) && Math.abs(extremumY) < 1000) {
+                        extrema.push({
+                            x: extremumX,
+                            y: extremumY,
+                            type: type
+                        });
+                    }
+                }
+                
+                prevDy = isNaN(dy) ? prevDy : dy;
+            }
+            
+            return extrema;
+        }
+        
+        // Find inflection points (where second derivative is zero)
+        function findInflectionPoints() {
+            const inflectionPoints = [];
+            const resolution = 500;
+            const epsilon = 0.05;
+            
+            let prevD2y = null;
+            
+            for (let i = 2; i < resolution - 1; i++) {
+                const x = map(i, 0, resolution, xMin, xMax);
+                const h = (xMax - xMin) / resolution;
+                
+                // Calculate approximate second derivative
+                const y0 = evaluateFunction(x - h);
+                const y1 = evaluateFunction(x);
+                const y2 = evaluateFunction(x + h);
+                const d2y = (y2 - 2 * y1 + y0) / (h * h);
+                
+                // Check for sign change in second derivative (potential inflection point)
+                if (prevD2y !== null && Math.abs(d2y) < epsilon || (prevD2y * d2y < 0)) {
+                    // Estimate inflection point
+                    const prevX = map(i - 1, 0, resolution, xMin, xMax);
+                    const inflectionX = (prevX + x) / 2;
+                    const inflectionY = evaluateFunction(inflectionX);
+                    
+                    // Add to list if not NaN
+                    if (!isNaN(inflectionY) && Math.abs(inflectionY) < 1000) {
+                        inflectionPoints.push({
+                            x: inflectionX,
+                            y: inflectionY
+                        });
+                    }
+                }
+                
+                prevD2y = isNaN(d2y) ? prevD2y : d2y;
+            }
+            
+            return inflectionPoints;
+        }
+        
+        // Setup event listeners for UI
+        function setupEventListeners() {
+            // Function type dropdown
+            document.getElementById('functionType').addEventListener('change', function() {
+                functionType = this.value;
+                updateParameterControls();
+                updateFunctionInfo();
+                updateFunctionDisplay();
+            });
+            
+            // Custom function input
+            document.getElementById('applyCustom').addEventListener('click', function() {
+                customFunctionText = document.getElementById('customFunction').value;
+                updateFunctionDisplay();
+            });
+            
+            // Appearance controls
+            document.getElementById('showGrid').addEventListener('change', function() {
+                showGrid = this.checked;
+            });
+            
+            document.getElementById('showAxis').addEventListener('change', function() {
+                showAxis = this.checked;
+            });
+            
+            document.getElementById('showLabels').addEventListener('change', function() {
+                showLabels = this.checked;
+            });
+            
+            document.getElementById('showPoints').addEventListener('change', function() {
+                showPoints = this.checked;
+            });
+            
+            // Analysis controls
+            document.getElementById('showIntercepts').addEventListener('change', function() {
+                showIntercepts = this.checked;
+            });
+            
+            document.getElementById('showExtrema').addEventListener('change', function() {
+                showExtrema = this.checked;
+            });
+            
+            document.getElementById('showInflection').addEventListener('change', function() {
+                showInflection = this.checked;
+            });
+            
+            document.getElementById('showDerivative').addEventListener('change', function() {
+                showDerivative = this.checked;
+            });
+            
+            document.getElementById('showSecondDerivative').addEventListener('change', function() {
+                showSecondDerivative = this.checked;
+            });
+            
+            // Grid size controls
+            document.getElementById('gridSmaller').addEventListener('click', function() {
+                gridSize = Math.max(0.1, gridSize / 2);
+                document.getElementById('gridSizeDisplay').textContent = gridSize;
+            });
+            
+            document.getElementById('gridLarger').addEventListener('click', function() {
+                gridSize = Math.min(10, gridSize * 2);
+                document.getElementById('gridSizeDisplay').textContent = gridSize;
+            });
+            
+            // Zoom controls
+            document.getElementById('zoomIn').addEventListener('click', function() {
+                zoomLevel *= 1.2;
+                zoomLevel = constrain(zoomLevel, 0.1, 10);
+            });
+            
+            document.getElementById('zoomOut').addEventListener('click', function() {
+                zoomLevel /= 1.2;
+                zoomLevel = constrain(zoomLevel, 0.1, 10);
+            });
+            
+            document.getElementById('resetView').addEventListener('click', function() {
+                zoomLevel = 1;
+                offsetX = 0;
+                offsetY = 0;
+            });
+            
+            // Range sliders for axes
+            document.getElementById('xMinRange').addEventListener('input', function() {
+                xMin = parseInt(this.value);
+                document.getElementById('xMinValue').textContent = xMin;
+            });
+            
+            document.getElementById('xMaxRange').addEventListener('input', function() {
+                xMax = parseInt(this.value);
+                document.getElementById('xMaxValue').textContent = xMax;
+            });
+            
+            document.getElementById('yMinRange').addEventListener('input', function() {
+                yMin = parseInt(this.value);
+                document.getElementById('yMinValue').textContent = yMin;
+            });
+            
+            document.getElementById('yMaxRange').addEventListener('input', function() {
+                yMax = parseInt(this.value);
+                document.getElementById('yMaxValue').textContent = yMax;
+            });
+            
+            // Calculate button
+            document.getElementById('calculateBtn').addEventListener('click', function() {
+                const x = parseFloat(document.getElementById('calculateX').value);
+                const y = evaluateFunction(x);
+                
+                // Calculate derivatives
+                const h = 0.0001;
+                const dy = (evaluateFunction(x + h) - evaluateFunction(x - h)) / (2 * h);
+                const d2y = (evaluateFunction(x + h) - 2 * evaluateFunction(x) + evaluateFunction(x - h)) / (h * h);
+                
+                let result = `f(${x}) = ${isNaN(y) ? '未定義' : y.toFixed(4)}<br>`;
+                result += `f'(${x}) = ${isNaN(dy) ? '未定義' : dy.toFixed(4)}<br>`;
+                result += `f''(${x}) = ${isNaN(d2y) ? '未定義' : d2y.toFixed(4)}`;
+                
+                document.getElementById('calculateResult').innerHTML = result;
+            });
+            
+            // Animation button
+            document.getElementById('animateButton').addEventListener('click', function() {
+                isAnimating = !isAnimating;
+                
+                if (isAnimating) {
+                    this.textContent = 'アニメーション停止';
+                    this.classList.add('active');
+                    animateParameter = document.getElementById('animateParameter').value;
+                    animationValue = 0;
+                } else {
+                    this.textContent = 'アニメーション開始';
+                    this.classList.remove('active');
+                }
+            });
+            
+            // Tab navigation
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Deactivate all tabs
+                    document.querySelectorAll('.tab-content').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    
+                    document.querySelectorAll('.tab-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // Activate selected tab
+                    document.getElementById(tabId).classList.add('active');
+                    this.classList.add('active');
+                });
+            });
+        }
+    </script>
+</body>
+</html>
