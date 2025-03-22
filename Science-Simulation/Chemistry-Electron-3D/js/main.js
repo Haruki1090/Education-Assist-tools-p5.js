@@ -533,6 +533,9 @@ function openOrbitalModal(element) {
         }
     }
     
+    // スライダーコントロールの初期化
+    initializeSliders();
+    
     // モーダル外側をスクロール不可に
     document.body.style.overflow = 'hidden';
     
@@ -549,39 +552,52 @@ function openOrbitalModal(element) {
 }
 
 /**
- * モーダルコンテンツを更新
+ * スライダーコントロールを初期化
+ */
+function initializeSliders() {
+    // 明るさ調整スライダー
+    const brightnessSlider = document.getElementById('brightness-slider');
+    if (brightnessSlider && orbitalViewer) {
+        brightnessSlider.value = Math.round(orbitalViewer.options.brightnessLevel * 100);
+    }
+    
+    // 電子速度調整スライダー
+    const electronSpeedSlider = document.getElementById('electron-speed');
+    if (electronSpeedSlider && orbitalViewer) {
+        electronSpeedSlider.value = Math.round(orbitalViewer.options.electronSpeed * 50);
+    }
+}
+
+/**
+ * モーダルの内容を更新
  * @param {Object} element - 元素データ
  */
 function updateModalContent(element) {
-    try {
-        // 電子配置タブを更新（これは素早く表示）
-        updateElectronConfigTab(element);
-        
-        // 特性タブを更新（これもブロッキングしない程度に素早い）
-        updatePropertySection('physical-properties', [
-            { label: '原子番号', value: element.number },
-            { label: '原子量', value: element.atomicMass ? element.atomicMass + ' u' : 'N/A' },
-            { label: '分類', value: getElementCategoryName(element.category) },
-            { label: '状態', value: getStateOfMatter(element) }
-        ]);
-        
-        // 電子特性タブを更新
-        updatePropertySection('electron-properties', [
-            { label: '電子数', value: element.number },
-            { label: '電子配置', value: element.electronConfiguration },
-            { label: '価電子数', value: getValenceElectrons(element) },
-            { label: '電子殻数', value: element.electronsPerShell ? element.electronsPerShell.length : 'N/A' }
-        ]);
-        
-        // 量子特性タブを更新
-        updateQuantumPropertiesTab(element);
-        
-        // 3D表示（時間のかかる処理なので、他のタブ表示後に行う）
-        renderOrbitalView(element);
-    } catch (error) {
-        console.error('モーダルコンテンツ更新エラー:', error);
-        showErrorInViewer('データ読み込みエラー: ' + error.message);
-    }
+    currentElement = element;
+    
+    // 電子配置タブを更新
+    updateElectronConfigTab(element);
+    
+    // 物理的特性タブを更新
+    updatePropertySection('physical-properties', getExtendedElementData(element));
+    
+    // 電子的特性タブを更新
+    const electronProperties = [
+        { label: '電子数', value: element.number },
+        { label: '電子配置', value: element.electronConfiguration },
+        { label: '価電子数', value: getValenceElectrons(element) },
+        { label: '電子殻数', value: element.electronsPerShell ? element.electronsPerShell.length : 'N/A' }
+    ];
+    updatePropertySection('electron-properties', electronProperties);
+    
+    // 量子特性タブを更新
+    updateQuantumPropertiesTab(element);
+    
+    // 3D軌道ビューを更新
+    renderOrbitalView(element);
+    
+    // スライダーの値を更新
+    initializeSliders();
 }
 
 /**
