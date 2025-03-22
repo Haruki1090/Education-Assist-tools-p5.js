@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幾何学的構造の動的可視化ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+        
+        header {
+            background-color: #4285f4;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .canvas-container {
+            flex: 3;
+            position: relative;
+            overflow: hidden;
+            background-color: white;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        #canvasContainer {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .controls {
+            flex: 1;
+            min-width: 250px;
+            background-color: #ffffff;
+            padding: 15px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        
+        .control-section h3 {
+            margin-top: 0;
+            color: #4285f4;
+        }
+        
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #3367d6;
+        }
+        
+        .active {
+            background-color: #34a853;
+        }
+        
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        
+        .color-option {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin: 5px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .color-option.selected {
+            border-color: #000;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+        
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 300px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>幾何学的構造の動的可視化ツール</h1>
+    </header>
+    
+    <div class="container">
+        <div class="canvas-container">
+            <div id="canvasContainer"></div>
+            <div class="tooltip" id="tooltip"></div>
+            <div class="info-panel" id="infoPanel"></div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-section">
+                <h3>図形の選択</h3>
+                <button id="btnTriangle">三角形</button>
+                <button id="btnRectangle">四角形</button>
+                <button id="btnCircle">円</button>
+                <button id="btnLine">線分</button>
+            </div>
+            
+            <div class="control-section">
+                <h3>表示オプション</h3>
+                <div>
+                    <input type="checkbox" id="showGrid" checked>
+                    <label for="showGrid">グリッド表示</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="showCoordinates">
+                    <label for="showCoordinates">座標表示</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="showAngles">
+                    <label for="showAngles">角度表示</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="showMeasurements">
+                    <label for="showMeasurements">寸法表示</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="showParallelLines">
+                    <label for="showParallelLines">平行線ハイライト</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="snapToGrid">
+                    <label for="snapToGrid">グリッドにスナップ</label>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>アニメーション</h3>
+                <button id="btnAnimate">変形アニメーション</button>
+                <div>
+                    <label for="animationSpeed">アニメーション速度</label>
+                    <input type="range" id="animationSpeed" min="1" max="10" value="5">
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>操作</h3>
+                <button id="btnClear">すべて消去</button>
+                <button id="btnUndo">元に戻す</button>
+                <button id="btnHelp">ヘルプ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let shapes = [];
+        let selectedShape = null;
+        let selectedPoint = null;
+        let draggedVertex = null;
+        let currentShapeType = null;
+        let drawingShape = false;
+        let tempShape = null;
+        let gridSize = 20;
+        let actionHistory = [];
+        let infoPanel;
+        let tooltip;
+        let isAnimating = false;
+        let animationProgress = 0;
+        let animationStartShape = null;
+        let animationEndShape = null;
+
+        // 色のオプション
+        const colors = {
+            triangle: [255, 150, 150],
+            rectangle: [150, 150, 255],
+            circle: [150, 255, 150],
+            line: [255, 255, 150],
+            highlight: [255, 255, 0],
+            grid: [230, 230, 230],
+            selected: [255, 165, 0],
+            measurement: [100, 100, 100]
+        };
+
+        function setup() {
+            const canvas = createCanvas(
+                document.querySelector('.canvas-container').offsetWidth,
+                document.querySelector('.canvas-container').offsetHeight
+            );
+            canvas.parent('canvasContainer');
+            
+            infoPanel = select('#infoPanel');
+            tooltip = select('#tooltip');
+            
+            // ボタンイベントのセットアップ
+            select('#btnTriangle').mousePressed(() => setShapeType('triangle'));
+            select('#btnRectangle').mousePressed(() => setShapeType('rectangle'));
+            select('#btnCircle').mousePressed(() => setShapeType('circle'));
+            select('#btnLine').mousePressed(() => setShapeType('line'));
+            select('#btnClear').mousePressed(clearCanvas);
+            select('#btnUndo').mousePressed(undoLastAction);
+            select('#btnAnimate').mousePressed(toggleAnimation);
+            select('#btnHelp').mousePressed(showHelp);
+            
+            // 初期状態の設定
+            updateInfoPanel("図形を選択して描画を開始してください。");
+        }
+        
+        function setShapeType(type) {
+            // 前に選択されたボタンのハイライトを解除
+            if (currentShapeType) {
+                select(`#btn${capitalizeFirstLetter(currentShapeType)}`).removeClass('active');
+            }
+            
+            currentShapeType = type;
+            select(`#btn${capitalizeFirstLetter(type)}`).addClass('active');
+            updateInfoPanel(`${getShapeNameInJapanese(type)}を描画します。キャンバス上をクリックして開始してください。`);
+        }
+        
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+        
+        function getShapeNameInJapanese(type) {
+            const names = {
+                'triangle': '三角形',
+                'rectangle': '四角形',
+                'circle': '円',
+                'line': '線分'
+            };
+            return names[type] || type;
+        }
+
+        function draw() {
+            background(255);
+            
+            // グリッドの描画
+            if (select('#showGrid').checked()) {
+                drawGrid();
+            }
+            
+            // 図形の描画
+            for (let i = 0; i < shapes.length; i++) {
+                drawShape(shapes[i], i === shapes.indexOf(selectedShape));
+            }
+            
+            // 描画中の図形
+            if (drawingShape && tempShape) {
+                drawShape(tempShape, true);
+            }
+            
+            // アニメーション中の場合
+            if (isAnimating) {
+                animateShapeTransformation();
+            }
+            
+            // 平行線のハイライト
+            if (select('#showParallelLines').checked()) {
+                highlightParallelLines();
+            }
+        }
+        
+        function drawGrid() {
+            stroke(colors.grid);
+            strokeWeight(1);
+            
+            for (let x = 0; x < width; x += gridSize) {
+                line(x, 0, x, height);
+            }
+            
+            for (let y = 0; y < height; y += gridSize) {
+                line(0, y, width, y);
+            }
+        }
+        
+        function drawShape(shape, isSelected) {
+            const shapeColor = isSelected ? colors.selected : colors[shape.type];
+            
+            if (isAnimating && (shape === animationStartShape || shape === animationEndShape)) {
+                // アニメーション中は描画しない
+                return;
+            }
+            
+            switch (shape.type) {
+                case 'triangle':
+                    drawTriangle(shape, shapeColor, isSelected);
+                    break;
+                case 'rectangle':
+                    drawRectangle(shape, shapeColor, isSelected);
+                    break;
+                case 'circle':
+                    drawCircle(shape, shapeColor, isSelected);
+                    break;
+                case 'line':
+                    drawLine(shape, shapeColor, isSelected);
+                    break;
+            }
+            
+            // 測定値の表示
+            if (select('#showMeasurements').checked()) {
+                showMeasurements(shape);
+            }
+            
+            // 角度の表示
+            if (select('#showAngles').checked() && (shape.type === 'triangle' || shape.type === 'rectangle')) {
+                showAngles(shape);
+            }
+        }
+        
+        function drawTriangle(shape, color, isSelected) {
+            fill(color[0], color[1], color[2], 150);
+            stroke(0);
+            strokeWeight(isSelected ? 2 : 1);
+            
+            beginShape();
+            for (const vertex of shape.vertices) {
+                vertex(vertex.x, vertex.y);
+            }
+            endShape(CLOSE);
+            
+            // 頂点の描画
+            for (const vertex of shape.vertices) {
+                drawVertex(vertex, isSelected);
+            }
+        }
+        
+        function drawRectangle(shape, color, isSelected) {
+            fill(color[0], color[1], color[2], 150);
+            stroke(0);
+            strokeWeight(isSelected ? 2 : 1);
+            
+            beginShape();
+            for (const vertex of shape.vertices) {
+                vertex(vertex.x, vertex.y);
+            }
+            endShape(CLOSE);
+            
+            // 頂点の描画
+            for (const vertex of shape.vertices) {
+                drawVertex(vertex, isSelected);
+            }
+        }
+        
+        function drawCircle(shape, color, isSelected) {
+            fill(color[0], color[1], color[2], 150);
+            stroke(0);
+            strokeWeight(isSelected ? 2 : 1);
+            
+            const radius = dist(shape.center.x, shape.center.y, shape.edge.x, shape.edge.y);
+            circle(shape.center.x, shape.center.y, radius * 2);
+            
+            // 中心点の描画
+            drawVertex(shape.center, isSelected);
+            
+            // 半径点の描画
+            drawVertex(shape.edge, isSelected);
+            
+            // 半径線の描画
+            stroke(100);
+            strokeWeight(1);
+            line(shape.center.x, shape.center.y, shape.edge.x, shape.edge.y);
+        }
+        
+        function drawLine(shape, color, isSelected) {
+            stroke(color[0], color[1], color[2]);
+            strokeWeight(isSelected ? 3 : 2);
+            
+            line(shape.start.x, shape.start.y, shape.end.x, shape.end.y);
+            
+            // 端点の描画
+            drawVertex(shape.start, isSelected);
+            drawVertex(shape.end, isSelected);
+        }
+        
+        function drawVertex(vertex, isSelected) {
+            if (vertex === selectedPoint) {
+                fill(255, 0, 0);
+            } else {
+                fill(isSelected ? 255 : 200);
+            }
+            stroke(0);
+            strokeWeight(1);
+            circle(vertex.x, vertex.y, 10);
+        }
+        
+        function showMeasurements(shape) {
+            fill(colors.measurement);
+            noStroke();
+            textSize(12);
+            textAlign(CENTER, CENTER);
+            
+            switch (shape.type) {
+                case 'triangle':
+                    // 各辺の長さ
+                    for (let i = 0; i < 3; i++) {
+                        const v1 = shape.vertices[i];
+                        const v2 = shape.vertices[(i + 1) % 3];
+                        const midX = (v1.x + v2.x) / 2;
+                        const midY = (v1.y + v2.y) / 2;
+                        const length = dist(v1.x, v1.y, v2.x, v2.y).toFixed(1);
+                        text(length, midX, midY);
+                    }
+                    break;
+                    
+                case 'rectangle':
+                    // 幅と高さ
+                    const width = dist(shape.vertices[0].x, shape.vertices[0].y, shape.vertices[1].x, shape.vertices[1].y).toFixed(1);
+                    const height = dist(shape.vertices[1].x, shape.vertices[1].y, shape.vertices[2].x, shape.vertices[2].y).toFixed(1);
+                    
+                    text(width, (shape.vertices[0].x + shape.vertices[1].x) / 2, (shape.vertices[0].y + shape.vertices[1].y) / 2);
+                    text(height, (shape.vertices[1].x + shape.vertices[2].x) / 2, (shape.vertices[1].y + shape.vertices[2].y) / 2);
+                    break;
+                    
+                case 'circle':
+                    // 半径と直径
+                    const radius = dist(shape.center.x, shape.center.y, shape.edge.x, shape.edge.y).toFixed(1);
+                    const diameter = (radius * 2).toFixed(1);
+                    
+                    text(`r: ${radius}`, (shape.center.x + shape.edge.x) / 2, (shape.center.y + shape.edge.y) / 2);
+                    text(`d: ${diameter}`, shape.center.x, shape.center.y - 20);
+                    break;
+                    
+                case 'line':
+                    // 長さ
+                    const lineLength = dist(shape.start.x, shape.start.y, shape.end.x, shape.end.y).toFixed(1);
+                    text(lineLength, (shape.start.x + shape.end.x) / 2, (shape.start.y + shape.end.y) / 2);
+                    break;
+            }
+        }
+        
+        function showAngles(shape) {
+            fill(colors.measurement);
+            noStroke();
+            textSize(12);
+            textAlign(CENTER, CENTER);
+            
+            if (shape.type === 'triangle') {
+                // 三角形の各頂点の角度
+                for (let i = 0; i < 3; i++) {
+                    const v1 = shape.vertices[i];
+                    const v2 = shape.vertices[(i + 1) % 3];
+                    const v3 = shape.vertices[(i + 2) % 3];
+                    
+                    const angle = calculateAngle(v1, v2, v3).toFixed(1);
+                    text(`${angle}°`, v2.x, v2.y - 15);
+                }
+            } else if (shape.type === 'rectangle') {
+                // 四角形の各頂点の角度（通常は90度だが、変形する可能性もある）
+                for (let i = 0; i < 4; i++) {
+                    const v1 = shape.vertices[(i + 3) % 4];
+                    const v2 = shape.vertices[i];
+                    const v3 = shape.vertices[(i + 1) % 4];
+                    
+                    const angle = calculateAngle(v1, v2, v3).toFixed(1);
+                    text(`${angle}°`, v2.x, v2.y - 15);
+                }
+            }
+        }
+        
+        function calculateAngle(p1, p2, p3) {
+            const a = dist(p2.x, p2.y, p3.x, p3.y);
+            const b = dist(p1.x, p1.y, p2.x, p2.y);
+            const c = dist(p1.x, p1.y, p3.x, p3.y);
+            
+            // コサイン定理を使用して角度を計算
+            const cosAngle = (a * a + b * b - c * c) / (2 * a * b);
+            const angleRad = Math.acos(constrain(cosAngle, -1, 1));
+            return angleRad * (180 / Math.PI);
+        }
+        
+        function highlightParallelLines() {
+            // 平行線の検出とハイライト
+            for (let i = 0; i < shapes.length; i++) {
+                const shape1 = shapes[i];
+                
+                if (shape1.type === 'rectangle') {
+                    // 四角形の対辺は平行
+                    highlightParallelSides(shape1);
+                } else if (shape1.type === 'line') {
+                    // 他の線分と平行かチェック
+                    for (let j = i + 1; j < shapes.length; j++) {
+                        const shape2 = shapes[j];
+                        
+                        if (shape2.type === 'line') {
+                            if (areLinesParallel(shape1, shape2)) {
+                                // 平行線をハイライト
+                                strokeWeight(3);
+                                stroke(colors.highlight);
+                                line(shape1.start.x, shape1.start.y, shape1.end.x, shape1.end.y);
+                                line(shape2.start.x, shape2.start.y, shape2.end.x, shape2.end.y);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        function highlightParallelSides(rectangle) {
+            // 四角形の対辺をハイライト
+            strokeWeight(3);
+            stroke(colors.highlight);
+            
+            // 上辺と下辺
+            line(rectangle.vertices[0].x, rectangle.vertices[0].y, rectangle.vertices[1].x, rectangle.vertices[1].y);
+            line(rectangle.vertices[2].x, rectangle.vertices[2].y, rectangle.vertices[3].x, rectangle.vertices[3].y);
+            
+            // 左辺と右辺
+            line(rectangle.vertices[0].x, rectangle.vertices[0].y, rectangle.vertices[3].x, rectangle.vertices[3].y);
+            line(rectangle.vertices[1].x, rectangle.vertices[1].y, rectangle.vertices[2].x, rectangle.vertices[2].y);
+        }
+        
+        function areLinesParallel(line1, line2) {
+            // 二つの線分が平行かどうかを判定
+            const slope1 = calculateSlope(line1.start, line1.end);
+            const slope2 = calculateSlope(line2.start, line2.end);
+            
+            // 傾きの差が小さければ平行とみなす
+            return Math.abs(slope1 - slope2) < 0.1;
+        }
+        
+        function calculateSlope(p1, p2) {
+            // 2点間の傾きを計算
+            if (p2.x - p1.x === 0) {
+                return Infinity; // 垂直線
+            }
+            return (p2.y - p1.y) / (p2.x - p1.x);
+        }
+        
+        function mousePressed() {
+            // キャンバス内かどうかチェック
+            if (mouseX < 0 || mouseX > width || mouseY < 0 || mouseY > height) {
+                return;
+            }
+            
+            if (currentShapeType) {
+                // 新しい図形の作成開始
+                if (!drawingShape) {
+                    startDrawingShape();
+                } else {
+                    // 図形の作成完了
+                    completeShape();
+                }
+            } else {
+                // 既存の図形または頂点の選択
+                selectShapeOrVertex();
+            }
+        }
+        
+        function startDrawingShape() {
+            drawingShape = true;
+            
+            switch (currentShapeType) {
+                case 'triangle':
+                    tempShape = {
+                        type: 'triangle',
+                        vertices: [
+                            { x: mouseX, y: mouseY },
+                            { x: mouseX, y: mouseY },
+                            { x: mouseX, y: mouseY }
+                        ]
+                    };
+                    break;
+                    
+                case 'rectangle':
+                    tempShape = {
+                        type: 'rectangle',
+                        vertices: [
+                            { x: mouseX, y: mouseY },
+                            { x: mouseX, y: mouseY },
+                            { x: mouseX, y: mouseY },
+                            { x: mouseX, y: mouseY }
+                        ]
+                    };
+                    break;
+                    
+                case 'circle':
+                    tempShape = {
+                        type: 'circle',
+                        center: { x: mouseX, y: mouseY },
+                        edge: { x: mouseX + 50, y: mouseY }
+                    };
+                    break;
+                    
+                case 'line':
+                    tempShape = {
+                        type: 'line',
+                        start: { x: mouseX, y: mouseY },
+                        end: { x: mouseX, y: mouseY }
+                    };
+                    break;
+            }
+            
+            updateInfoPanel("マウスをドラッグして図形を作成します。クリックで完了します。");
+        }
+        
+        function completeShape() {
+            drawingShape = false;
+            
+            // 図形が十分な大きさを持っているか確認
+            let isValid = true;
+            
+            switch (tempShape.type) {
+                case 'triangle':
+                case 'rectangle':
+                    const area = calculatePolygonArea(tempShape.vertices);
+                    isValid = area > 100; // 最小面積
+                    break;
+                    
+                case 'circle':
+                    const radius = dist(tempShape.center.x, tempShape.center.y, tempShape.edge.x, tempShape.edge.y);
+                    isValid = radius > 10; // 最小半径
+                    break;
+                    
+                case 'line':
+                    const length = dist(tempShape.start.x, tempShape.start.y, tempShape.end.x, tempShape.end.y);
+                    isValid = length > 20; // 最小長さ
+                    break;
+            }
+            
+            if (isValid) {
+                // 履歴に追加
+                actionHistory.push({
+                    action: 'add',
+                    shape: JSON.parse(JSON.stringify(tempShape))
+                });
+                
+                // 図形の追加
+                shapes.push(tempShape);
+                selectedShape = tempShape;
+                tempShape = null;
+                
+                updateInfoPanel("図形が作成されました。頂点をドラッグして形状を調整できます。");
+            } else {
+                updateInfoPanel("図形が小さすぎます。もう一度お試しください。");
+                tempShape = null;
+            }
+            
+            currentShapeType = null;
+            // すべてのボタンのハイライトを解除
+            select('#btnTriangle').removeClass('active');
+            select('#btnRectangle').removeClass('active');
+            select('#btnCircle').removeClass('active');
+            select('#btnLine').removeClass('active');
+        }
+        
+        function calculatePolygonArea(vertices) {
+            let area = 0;
+            const n = vertices.length;
+            
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n;
+                area += vertices[i].x * vertices[j].y;
+                area -= vertices[j].x * vertices[i].y;
+            }
+            
+            return Math.abs(area / 2);
+        }
+        
+        function selectShapeOrVertex() {
+            // 頂点の選択
+            let foundVertex = false;
+            selectedPoint = null;
+            
+            for (const shape of shapes) {
+                if (shape.type === 'triangle' || shape.type === 'rectangle') {
+                    for (const vertex of shape.vertices) {
+                        if (dist(mouseX, mouseY, vertex.x, vertex.y) < 10) {
+                            selectedPoint = vertex;
+                            selectedShape = shape;
+                            draggedVertex = vertex;
+                            foundVertex = true;
+                            updateInfoPanel("頂点を選択しました。ドラッグして移動できます。");
+                            break;
+                        }
+                    }
+                } else if (shape.type === 'circle') {
+                    if (dist(mouseX, mouseY, shape.center.x, shape.center.y) < 10) {
+                        selectedPoint = shape.center;
+                        selectedShape = shape;
+                        draggedVertex = shape.center;
+                        foundVertex = true;
+                        updateInfoPanel("円の中心を選択しました。ドラッグして移動できます。");
+                        break;
+                    } else if (dist(mouseX, mouseY, shape.edge.x, shape.edge.y) < 10) {
+                        selectedPoint = shape.edge;
+                        selectedShape = shape;
+                        draggedVertex = shape.edge;
+                        foundVertex = true;
+                        updateInfoPanel("円の半径点を選択しました。ドラッグして大きさを変更できます。");
+                        break;
+                    }
+                } else if (shape.type === 'line') {
+                    if (dist(mouseX, mouseY, shape.start.x, shape.start.y) < 10) {
+                        selectedPoint = shape.start;
+                        selectedShape = shape;
+                        draggedVertex = shape.start;
+                        foundVertex = true;
+                        updateInfoPanel("線分の端点を選択しました。ドラッグして移動できます。");
+                        break;
+                    } else if (dist(mouseX, mouseY, shape.end.x, shape.end.y) < 10) {
+                        selectedPoint = shape.end;
+                        selectedShape = shape;
+                        draggedVertex = shape.end;
+                        foundVertex = true;
+                        updateInfoPanel("線分の端点を選択しました。ドラッグして移動できます。");
+                        break;
+                    }
+                }
+            }
+            
+            if (!foundVertex) {
+                // 図形本体の選択
+                selectedShape = null;
+                
+                for (let i = shapes.length - 1; i >= 0; i--) {
+                    const shape = shapes[i];
+                    
+                    if (isPointInShape(mouseX, mouseY, shape)) {
+                        selectedShape = shape;
+                        updateInfoPanel(`${getShapeNameInJapanese(shape.type)}を選択しました。頂点をドラッグして形状を調整できます。`);
+                        break;
+                    }
+                }
+                
+                if (selectedShape === null) {
+                    updateInfoPanel("何も選択されていません。図形を選択するか、ツールから新しい図形を作成してください。");
+                }
+            }
+        }
+        
+        function isPointInShape(x, y, shape) {
+            switch (shape.type) {
+                case 'triangle':
+                case 'rectangle':
+                    return isPointInPolygon(x, y, shape.vertices);
+                    
+                case 'circle':
+                    const radius = dist(shape.center.x, shape.center.y, shape.edge.x, shape.edge.y);
+                    return dist(x, y, shape.center.x, shape.center.y) < radius;
+                    
+                case 'line':
+                    const distToLine = distancePointToLine(
+                        { x, y },
+                        shape.start,
+                        shape.end
+                    );
+                    return distToLine < 5;
+            }
+            return false;
+        }
+        
+        function isPointInPolygon(x, y, vertices) {
+            let inside = false;
+            for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+                const xi = vertices[i].x, yi = vertices[i].y;
+                const xj = vertices[j].x, yj = vertices[j].y;
+                
+                const intersect = ((yi > y) !== (yj > y))
+                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+        
+        function distancePointToLine(p, v, w) {
+            // 点と線分の最短距離を計算
+            const lengthSquared = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
+            if (lengthSquared === 0) return dist(p.x, p.y, v.x, v.y);
+            
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / lengthSquared;
+            t = constrain(t, 0, 1);
+            
+            const projectionX = v.x + t * (w.x - v.x);
+            const projectionY = v.y + t * (w.y - v.y);
+            
+            return dist(p.x, p.y, projectionX, projectionY);
+        }
+        
+        function mouseDragged() {
+            if (drawingShape && tempShape) {
+                // 描画中の図形の更新
+                updateTempShape();
+            } else if (draggedVertex) {
+                // 図形の頂点のドラッグ
+                let x = mouseX;
+                let y = mouseY;
+                
+                // グリッドにスナップする場合
+                if (select('#snapToGrid').checked()) {
+                    x = Math.round(x / gridSize) * gridSize;
+                    y = Math.round(y / gridSize) * gridSize;
+                }
+                
+                // 変更前の状態を記録
+                if (!actionHistory.length || actionHistory[actionHistory.length - 1].action !== 'edit' ||
+                    actionHistory[actionHistory.length - 1].shapeIndex !== shapes.indexOf(selectedShape)) {
+                    actionHistory.push({
+                        action: 'edit',
+                        shapeIndex: shapes.indexOf(selectedShape),
+                        shapeBefore: JSON.parse(JSON.stringify(selectedShape))
+                    });
+                }
+                
+                // 頂点の移動
+                draggedVertex.x = x;
+                draggedVertex.y = y;
+                
+                // 四角形の場合、対角線上の頂点も適切に移動させる
+                if (selectedShape.type === 'rectangle') {
+                    maintainRectangleShape();
+                }
+                
+                updateInfoPanel("頂点を移動中...");
+            }
+        }
+        
+        function updateTempShape() {
+            switch (tempShape.type) {
+                case 'triangle':
+                    // 三角形の場合は2つ目の頂点を更新
+                    tempShape.vertices[1].x = mouseX;
+                    tempShape.vertices[1].y = mouseY;
+                    // 3つ目の頂点は、最初の頂点と同じx座標でマウスのy座標
+                    tempShape.vertices[2].x = tempShape.vertices[0].x + (tempShape.vertices[1].x - tempShape.vertices[0].x);
+                    tempShape.vertices[2].y = tempShape.vertices[0].y;
+                    break;
+                    
+                case 'rectangle':
+                    // 四角形の場合は対角の頂点を更新
+                    tempShape.vertices[1].x = mouseX;
+                    tempShape.vertices[1].y = tempShape.vertices[0].y;
+                    tempShape.vertices[2].x = mouseX;
+                    tempShape.vertices[2].y = mouseY;
+                    tempShape.vertices[3].x = tempShape.vertices[0].x;
+                    tempShape.vertices[3].y = mouseY;
+                    break;
+                    
+                case 'circle':
+                    // 円の場合は端点を更新
+                    tempShape.edge.x = mouseX;
+                    tempShape.edge.y = mouseY;
+                    break;
+                    
+                case 'line':
+                    // 線分の場合は終点を更新
+                    tempShape.end.x = mouseX;
+                    tempShape.end.y = mouseY;
+                    break;
+            }
+        }
+        
+        function maintainRectangleShape() {
+            const vertices = selectedShape.vertices;
+            const index = vertices.indexOf(draggedVertex);
+            
+            if (index >= 0) {
+                // 対角の頂点のインデックス
+                const oppositeIndex = (index + 2) % 4;
+                // 隣接する頂点のインデックス
+                const nextIndex = (index + 1) % 4;
+                const prevIndex = (index + 3) % 4;
+                
+                // 隣接する頂点を更新
+                vertices[nextIndex].x = draggedVertex.x;
+                vertices[nextIndex].y = vertices[oppositeIndex].y;
+                
+                vertices[prevIndex].x = vertices[oppositeIndex].x;
+                vertices[prevIndex].y = draggedVertex.y;
+            }
+        }
+        
+        function mouseReleased() {
+            draggedVertex = null;
+        }
+        
+        function clearCanvas() {
+            // すべての図形を消去
+            if (shapes.length > 0) {
+                actionHistory.push({
+                    action: 'clear',
+                    shapesBefore: JSON.parse(JSON.stringify(shapes))
+                });
+                
+                shapes = [];
+                selectedShape = null;
+                selectedPoint = null;
+                updateInfoPanel("すべての図形が消去されました。");
+            }
+        }
+        
+        function undoLastAction() {
+            if (actionHistory.length > 0) {
+                const lastAction = actionHistory.pop();
+                
+                switch (lastAction.action) {
+                    case 'add':
+                        shapes.pop();
+                        break;
+                        
+                    case 'edit':
+                        shapes[lastAction.shapeIndex] = lastAction.shapeBefore;
+                        break;
+                        
+                    case 'clear':
+                        shapes = lastAction.shapesBefore;
+                        break;
+                }
+                
+                selectedShape = null;
+                selectedPoint = null;
+                updateInfoPanel("前の操作を元に戻しました。");
+            } else {
+                updateInfoPanel("これ以上元に戻せません。");
+            }
+        }
+        
+        function toggleAnimation() {
+            if (selectedShape && !isAnimating) {
+                // アニメーションの開始
+                isAnimating = true;
+                animationProgress = 0;
+                
+                // 元の形状をコピー
+                animationStartShape = JSON.parse(JSON.stringify(selectedShape));
+                
+                // 目標の形状を作成
+                animationEndShape = JSON.parse(JSON.stringify(selectedShape));
+                
+                // 図形タイプごとに変形を定義
+                switch (selectedShape.type) {
+                    case 'triangle':
+                        // 三角形を正三角形に変形
+                        makeEquilateralTriangle(animationEndShape);
+                        break;
+                        
+                    case 'rectangle':
+                        // 四角形を正方形に変形
+                        makeSquare(animationEndShape);
+                        break;
+                        
+                    case 'circle':
+                        // 円は既に円なので、サイズを変更
+                        const radius = dist(animationEndShape.center.x, animationEndShape.center.y, 
+                                           animationEndShape.edge.x, animationEndShape.edge.y);
+                        animationEndShape.edge.x = animationEndShape.center.x + radius * 1.5;
+                        animationEndShape.edge.y = animationEndShape.center.y;
+                        break;
+                        
+                    case 'line':
+                        // 線分を水平にする
+                        animationEndShape.end.y = animationEndShape.start.y;
+                        break;
+                }
+                
+                updateInfoPanel("アニメーションを実行中...");
+                select('#btnAnimate').html('アニメーション停止');
+            } else if (isAnimating) {
+                // アニメーションの停止
+                isAnimating = false;
+                animationStartShape = null;
+                animationEndShape = null;
+                select('#btnAnimate').html('変形アニメーション');
+                updateInfoPanel("アニメーションが停止しました。");
+            } else {
+                updateInfoPanel("アニメーションを実行するには、まず図形を選択してください。");
+            }
+        }
+        
+        function makeEquilateralTriangle(triangle) {
+            // 三角形の重心を計算
+            const centroid = {
+                x: (triangle.vertices[0].x + triangle.vertices[1].x + triangle.vertices[2].x) / 3,
+                y: (triangle.vertices[0].y + triangle.vertices[1].y + triangle.vertices[2].y) / 3
+            };
+            
+            // 現在の三角形の周囲長を計算
+            const perimeter = 
+                dist(triangle.vertices[0].x, triangle.vertices[0].y, triangle.vertices[1].x, triangle.vertices[1].y) +
+                dist(triangle.vertices[1].x, triangle.vertices[1].y, triangle.vertices[2].x, triangle.vertices[2].y) +
+                dist(triangle.vertices[2].x, triangle.vertices[2].y, triangle.vertices[0].x, triangle.vertices[0].y);
+            
+            // 正三角形の一辺の長さ
+            const sideLength = perimeter / 3;
+            
+            // 正三角形の頂点を配置
+            for (let i = 0; i < 3; i++) {
+                const angle = (i * 2 * Math.PI / 3) - Math.PI / 2;
+                triangle.vertices[i].x = centroid.x + sideLength * Math.cos(angle);
+                triangle.vertices[i].y = centroid.y + sideLength * Math.sin(angle);
+            }
+        }
+        
+        function makeSquare(rectangle) {
+            // 四角形の中心を計算
+            const center = {
+                x: (rectangle.vertices[0].x + rectangle.vertices[1].x + rectangle.vertices[2].x + rectangle.vertices[3].x) / 4,
+                y: (rectangle.vertices[0].y + rectangle.vertices[1].y + rectangle.vertices[2].y + rectangle.vertices[3].y) / 4
+            };
+            
+            // 現在の四角形の面積を計算
+            const area = calculatePolygonArea(rectangle.vertices);
+            
+            // 正方形の一辺の長さ
+            const sideLength = Math.sqrt(area);
+            
+            // 正方形の頂点を配置
+            rectangle.vertices[0].x = center.x - sideLength / 2;
+            rectangle.vertices[0].y = center.y - sideLength / 2;
+            
+            rectangle.vertices[1].x = center.x + sideLength / 2;
+            rectangle.vertices[1].y = center.y - sideLength / 2;
+            
+            rectangle.vertices[2].x = center.x + sideLength / 2;
+            rectangle.vertices[2].y = center.y + sideLength / 2;
+            
+            rectangle.vertices[3].x = center.x - sideLength / 2;
+            rectangle.vertices[3].y = center.y + sideLength / 2;
+        }
+        
+        function animateShapeTransformation() {
+            const speed = select('#animationSpeed').value() / 10;
+            animationProgress += 0.01 * speed;
+            
+            if (animationProgress >= 1) {
+                // アニメーション完了
+                shapes[shapes.indexOf(selectedShape)] = animationEndShape;
+                selectedShape = animationEndShape;
+                isAnimating = false;
+                animationStartShape = null;
+                animationEndShape = null;
+                select('#btnAnimate').html('変形アニメーション');
+                updateInfoPanel("アニメーションが完了しました。");
+                return;
+            }
+            
+            // 中間フレームの計算と描画
+            const animatedShape = JSON.parse(JSON.stringify(animationStartShape));
+            
+            switch (animatedShape.type) {
+                case 'triangle':
+                case 'rectangle':
+                    for (let i = 0; i < animatedShape.vertices.length; i++) {
+                        animatedShape.vertices[i].x = lerp(
+                            animationStartShape.vertices[i].x,
+                            animationEndShape.vertices[i].x,
+                            animationProgress
+                        );
+                        animatedShape.vertices[i].y = lerp(
+                            animationStartShape.vertices[i].y,
+                            animationEndShape.vertices[i].y,
+                            animationProgress
+                        );
+                    }
+                    break;
+                    
+                case 'circle':
+                    animatedShape.center.x = lerp(
+                        animationStartShape.center.x,
+                        animationEndShape.center.x,
+                        animationProgress
+                    );
+                    animatedShape.center.y = lerp(
+                        animationStartShape.center.y,
+                        animationEndShape.center.y,
+                        animationProgress
+                    );
+                    animatedShape.edge.x = lerp(
+                        animationStartShape.edge.x,
+                        animationEndShape.edge.x,
+                        animationProgress
+                    );
+                    animatedShape.edge.y = lerp(
+                        animationStartShape.edge.y,
+                        animationEndShape.edge.y,
+                        animationProgress
+                    );
+                    break;
+                    
+                case 'line':
+                    animatedShape.start.x = lerp(
+                        animationStartShape.start.x,
+                        animationEndShape.start.x,
+                        animationProgress
+                    );
+                    animatedShape.start.y = lerp(
+                        animationStartShape.start.y,
+                        animationEndShape.start.y,
+                        animationProgress
+                    );
+                    animatedShape.end.x = lerp(
+                        animationStartShape.end.x,
+                        animationEndShape.end.x,
+                        animationProgress
+                    );
+                    animatedShape.end.y = lerp(
+                        animationStartShape.end.y,
+                        animationEndShape.end.y,
+                        animationProgress
+                    );
+                    break;
+            }
+            
+            // アニメーション中の図形を描画
+            drawShape(animatedShape, true);
+        }
+        
+        function updateInfoPanel(message) {
+            infoPanel.html(message);
+        }
+        
+        function showHelp() {
+            // ヘルプ情報を表示
+            updateInfoPanel(`
+                <strong>幾何学的構造の動的可視化ツール - 操作ガイド</strong><br>
+                - 図形ボタン: 三角形、四角形、円、線分を作成できます<br>
+                - 表示オプション: グリッド、座標、角度、寸法、平行線の表示をカスタマイズ<br>
+                - 変形アニメーション: 選択した図形を基本形に変形<br>
+                - 頂点や図形をドラッグして自由に変形<br>
+                - 平行線は自動的にハイライト表示
+            `);
+        }
+        
+        function windowResized() {
+            // ウィンドウサイズが変更されたときにキャンバスをリサイズ
+            resizeCanvas(
+                document.querySelector('.canvas-container').offsetWidth,
+                document.querySelector('.canvas-container').offsetHeight
+            );
+        }
+    </script>
+</body>
+</html>
