@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>運動と力のシミュレーションツール</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>運動と力のシミュレーションツール</h1>
+    </header>
+    <main>
+        <div class="container">
+            <div class="sidebar">
+                <div class="scenario-selector">
+                    <h2>シナリオ選択</h2>
+                    <select id="scenario-select">
+                        <option value="freefall">自由落下</option>
+                        <option value="projectile">弾道運動</option>
+                        <option value="pendulum">振り子運動</option>
+                        <option value="collision">弾性衝突</option>
+                        <option value="inclinedPlane">斜面上の運動</option>
+                    </select>
+                </div>
+                
+                <div class="controls">
+                    <h2>パラメータ調整</h2>
+                    <div id="parameter-controls">
+                        <!-- パラメータコントロールはJavaScriptで動的に生成される -->
+                    </div>
+                    
+                    <div class="buttons">
+                        <button id="start-btn">開始</button>
+                        <button id="reset-btn">リセット</button>
+                    </div>
+                </div>
+                
+                <div class="data-display">
+                    <h2>データ表示</h2>
+                    <div id="data-values">
+                        <!-- データ値はJavaScriptによって更新される -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="simulation-container">
+                <div id="simulation-canvas"></div>
+                <div class="simulation-info">
+                    <h3 id="scenario-title">シミュレーション</h3>
+                    <p id="scenario-description">パラメータを調整して「開始」ボタンをクリックしてください。</p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>物理現象を楽しく学ぶためのシミュレーションツール</p>
+    </footer>
+
+    <!-- JavaScript Files -->
+    <script src="js/simulationBase.js"></script>
+    <script src="js/freefall.js"></script>
+    <script src="js/projectile.js"></script>
+    <script src="js/pendulum.js"></script>
+    <script src="js/collision.js"></script>
+    <script src="js/inclinedPlane.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
