@@ -1,0 +1,844 @@
+:root {
+    --primary: #3a86ff;
+    --secondary: #8338ec;
+    --accent: #ff006e;
+    --success: #38b000;
+    --warning: #ffbe0b;
+    --info: #00b4d8;
+    --dark: #212529;
+    --light: #f8f9fa;
+    --transition: all 0.3s ease;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    color: var(--dark);
+    overflow: hidden;
+    line-height: 1.6;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+/* メインキャンバスエリア */
+.canvas-area {
+    flex: 1;
+    position: relative;
+    background: linear-gradient(135deg, #1c1c1c 0%, #2d3436 100%);
+    overflow: hidden;
+}
+
+#scene-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* オーバーレイ要素 */
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* ツールバー */
+.toolbar {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 50px;
+    padding: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    pointer-events: all;
+}
+
+.tool-btn {
+    background-color: transparent;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    margin: 0 5px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.tool-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
+}
+
+.tool-btn.active {
+    background-color: var(--primary);
+    color: white;
+}
+
+.tool-btn img {
+    width: 24px;
+    height: 24px;
+}
+
+.tool-btn .tooltip {
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--dark);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: var(--transition);
+    pointer-events: none;
+}
+
+.tool-btn:hover .tooltip {
+    opacity: 1;
+    bottom: -35px;
+}
+
+/* サイドパネル */
+.side-panel {
+    width: 320px;
+    height: 100%;
+    background-color: white;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+    transition: var(--transition);
+    z-index: 50;
+    transform: translateX(100%);
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+
+.side-panel.active {
+    transform: translateX(0);
+}
+
+.panel-header {
+    padding: 20px;
+    background-color: var(--primary);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.panel-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.close-panel {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.close-panel:hover {
+    transform: rotate(90deg);
+}
+
+.panel-content {
+    padding: 20px;
+}
+
+.panel-section {
+    margin-bottom: 25px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background-color: rgba(0, 0, 0, 0.1);
+    margin-left: 10px;
+}
+
+/* 元素選択グリッド */
+.element-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.element-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+    position: relative;
+}
+
+.element-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.element-card.selected {
+    border-color: var(--primary);
+    background-color: rgba(58, 134, 255, 0.1);
+}
+
+.element-symbol {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.element-name {
+    font-size: 12px;
+}
+
+.element-card[data-element="H"] .element-symbol { color: #88CCEE; }
+.element-card[data-element="C"] .element-symbol { color: #444444; }
+.element-card[data-element="N"] .element-symbol { color: #2255CC; }
+.element-card[data-element="O"] .element-symbol { color: #CC0000; }
+.element-card[data-element="F"] .element-symbol { color: #77DD88; }
+.element-card[data-element="Na"] .element-symbol { color: #9955BB; }
+.element-card[data-element="Cl"] .element-symbol { color: #00CC44; }
+
+/* 分子テンプレート */
+.molecule-templates {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.molecule-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.molecule-card:hover {
+    background-color: rgba(131, 56, 236, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.molecule-icon {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 10px;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.molecule-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.molecule-formula {
+    font-size: 12px;
+    color: #666;
+}
+
+/* ボタン */
+.btn {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.btn-block {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.btn-secondary {
+    background-color: var(--secondary);
+}
+
+.btn-success {
+    background-color: var(--success);
+}
+
+.btn-warning {
+    background-color: var(--warning);
+    color: var(--dark);
+}
+
+.btn-info {
+    background-color: var(--info);
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.btn-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+/* インストラクションオーバーレイ */
+.instruction-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+
+.instruction-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.instruction-card {
+    background-color: white;
+    border-radius: 10px;
+    width: 80%;
+    max-width: 700px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.instruction-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #999;
+    transition: var(--transition);
+}
+
+.instruction-close:hover {
+    color: var(--accent);
+    transform: rotate(90deg);
+}
+
+.instruction-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 20px;
+}
+
+.instruction-step {
+    display: flex;
+    margin-bottom: 20px;
+    align-items: flex-start;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    background-color: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+.step-description {
+    color: #666;
+    font-size: 14px;
+}
+
+/* ドック */
+.dock {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    padding: 10px 15px;
+    display: flex;
+    gap: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    pointer-events: all;
+}
+
+.dock-item {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: var(--transition);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dock-item:hover {
+    transform: translateY(-5px) scale(1.1);
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.dock-item.active {
+    background-color: var(--primary);
+    color: white;
+}
+
+.dock-item img {
+    width: 20px;
+    height: 20px;
+}
+
+/* 情報カード */
+.info-card {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    background-color: white;
+    border-radius: 10px;
+    padding: 15px;
+    width: 280px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transition: var(--transition);
+    transform: translateY(0);
+    z-index: 50;
+    pointer-events: all;
+}
+
+.info-card.minimized {
+    transform: translateY(calc(100% - 40px));
+}
+
+.info-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.info-card-title {
+    font-weight: 600;
+    color: var(--primary);
+    margin: 0;
+    font-size: 16px;
+}
+
+.info-card-toggle {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: #999;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.info-card-toggle:hover {
+    color: var(--accent);
+}
+
+.info-card-content {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.5;
+    max-height: 200px;
+    overflow-y: auto;
+    transition: var(--transition);
+}
+
+.minimized .info-card-content {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* アニメーションと効果 */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.pulse {
+    animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+}
+
+.bounce {
+    animation: bounce 2s infinite;
+}
+
+/* ハイライト効果 */
+.tour-highlight {
+    position: relative;
+    z-index: 101;
+    box-shadow: 0 0 0 2px var(--primary), 0 0 20px rgba(58, 134, 255, 0.5);
+    animation: pulse 1.5s infinite;
+}
+
+/* ローディングスピナー */
+.loader {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--primary);
+    animation: spin 1s linear infinite;
+    z-index: 1000;
+}
+
+@keyframes spin {
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ツールチップポップアップ */
+.atom-tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 100;
+    display: none;
+    transform: translate(-50%, -100%);
+    transition: var(--transition);
+}
+
+.atom-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid rgba(0, 0, 0, 0.8);
+}
+
+/* 反応ビューコントロール */
+.reaction-controls {
+    margin-top: 15px;
+}
+
+.progress-track {
+    width: 100%;
+    height: 6px;
+    background-color: #f0f0f0;
+    border-radius: 3px;
+    margin: 15px 0;
+    position: relative;
+}
+
+.progress-thumb {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    background-color: var(--primary);
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0%;
+    cursor: pointer;
+    transition: left 0.2s ease;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+.reaction-label {
+    font-size: 12px;
+    color: #666;
+    margin: 5px 0;
+    text-align: center;
+}
+
+.reaction-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.reaction-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+}
+
+.reaction-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.reaction-card.selected {
+    border-color: var(--accent);
+    background-color: rgba(255, 0, 110, 0.05);
+}
+
+.reaction-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.reaction-name {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* 分子特性リスト */
+.property-list {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.property-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.property-name {
+    font-weight: 600;
+    color: #555;
+}
+
+.property-value {
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* ツアーポップアップ */
+.tour-popup {
+    position: absolute;
+    background-color: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    width: 250px;
+    z-index: 1000;
+    pointer-events: all;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.tour-popup.active {
+    opacity: 1;
+}
+
+.tour-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--primary);
+}
+
+.tour-content {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.tour-actions {
+    display: flex;
+    justify-content: space-between;
+}
+
+/* ジェスチャーガイド */
+.gesture-guide {
+    position: absolute;
+    bottom: 70px;
+    right: 20px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    font-size: 12px;
+    color: #555;
+    pointer-events: all;
+    z-index: 50;
+}
+
+.gesture-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.gesture-icon {
+    width: 25px;
+    height: 25px;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    .toolbar {
+        top: 10px;
+        padding: 5px;
+    }
+    
+    .tool-btn {
+        width: 40px;
+        height: 40px;
+        margin: 0 2px;
+    }
+    
+    .side-panel {
+        width: 260px;
+    }
+    
+    .info-card {
+        width: 220px;
+    }
+    
+    .element-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .molecule-templates {
+        grid-template-columns: 1fr;
+    }
+    
+    .reaction-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .toolbar {
+        width: 90%;
+    }
+    
+    .tool-btn {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .side-panel {
+        width: 85%;
+    }
+    
+    .element-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .instruction-card {
+        width: 90%;
+        padding: 15px;
+    }
+    
+    .dock {
+        width: 90%;
+        gap: 10px;
+    }
+}
