@@ -30,9 +30,14 @@ class OrbitalViewer {
         this.electronTrails = [];
         this.trailPoints = [];
         
+        // マウスとレイキャストの初期化を追加
+        this.mouse = new THREE.Vector2();
+        this.raycaster = new THREE.Raycaster();
+        
         this.animationFrameId = null;
         this.currentElement = null;
         this.isInitialized = false;
+        this.loadingStartTime = 0;
         
         // 設定オプション
         this.options = {
@@ -42,8 +47,10 @@ class OrbitalViewer {
             showOrbitals: true,       // 軌道の表示
             initialCameraPosition: null, // カメラの初期位置
             lightMode: document.documentElement.getAttribute('data-theme') !== 'dark', // ライトモードかどうか
-            trailLength: 30,          // 軌跡の長さ
-            trailFadeTime: 1.5        // 軌跡の消える時間（秒）
+            trailLength: 20,          // 軌跡の長さ（最適化のために減らす）
+            trailFadeTime: 1.0,       // 軌跡の消える時間（秒）
+            lowDetailMode: false,     // 低詳細モード（パフォーマンス向上用）
+            showTrails: true          // 軌跡の表示
         };
         
         // THREE.jsが読み込まれているか確認
@@ -52,20 +59,92 @@ class OrbitalViewer {
             return;
         }
         
-        this.raycaster = new THREE.Raycaster();
-        this.mouse = new THREE.Vector2();
-        
         // 情報表示用のDOMエレメント
         this.orbitalInfo = document.getElementById('orbital-info');
         this.orbitalDetails = document.getElementById('orbital-details');
         
-        // 初期化を試みる
-        try {
-            this.initialize();
-            this.setupControls();
-        } catch (error) {
-            console.error('OrbitalViewerの初期化に失敗しました:', error);
+        // 初期化処理を遅延実行（パフォーマンスのため）
+        this.showLoadingState();
+        setTimeout(() => {
+            try {
+                this.initialize();
+                this.setupControls();
+            } catch (error) {
+                console.error('OrbitalViewerの初期化に失敗しました:', error);
+                this.showErrorState(error.message);
+            }
+        }, 100);
+    }
+    
+    /**
+     * ローディング状態を表示
+     */
+    showLoadingState() {
+        if (!this.container) return;
+        
+        // すでにレンダラーがある場合は、キャンバスを保持したままローディングを表示
+        if (this.renderer && this.renderer.domElement) {
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'loading-overlay';
+            loadingOverlay.style.position = 'absolute';
+            loadingOverlay.style.top = '0';
+            loadingOverlay.style.left = '0';
+            loadingOverlay.style.width = '100%';
+            loadingOverlay.style.height = '100%';
+            loadingOverlay.style.display = 'flex';
+            loadingOverlay.style.alignItems = 'center';
+            loadingOverlay.style.justifyContent = 'center';
+            loadingOverlay.style.background = 'rgba(0, 0, 0, 0.7)';
+            loadingOverlay.style.zIndex = '10';
+            
+            loadingOverlay.innerHTML = `
+                <div style="text-align: center; color: white;">
+                    <i class="fas fa-atom fa-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                    <p>3D軌道を読み込み中...</p>
+                    <div class="progress-container" style="width: 80%; height: 4px; background: rgba(255,255,255,0.2); margin: 10px auto;">
+                        <div class="progress-bar" style="width: 30%; height: 100%; background: var(--accent-color); animation: loading-progress 2s infinite ease-in-out;"></div>
+                    </div>
+                </div>
+            `;
+            
+            // 既存のオーバーレイがあれば削除
+            const existingOverlay = this.container.querySelector('.loading-overlay');
+            if (existingOverlay) {
+                this.container.removeChild(existingOverlay);
+            }
+            
+            this.container.appendChild(loadingOverlay);
+        } else {
+            // レンダラーがまだない場合はHTMLを直接書き換え
+            this.container.innerHTML = `
+                <div class="tech-loading">
+                    <i class="fas fa-atom fa-spin"></i>
+                    <p>3D電子軌道を初期化中...</p>
+                    <div class="progress-container">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+            `;
         }
+    }
+    
+    /**
+     * エラー状態を表示
+     * @param {string} message - エラーメッセージ
+     */
+    showErrorState(message) {
+        if (!this.container) return;
+        
+        this.container.innerHTML = `
+            <div class="tech-placeholder">
+                <i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i>
+                <p>${message || '3Dビューアの読み込みに失敗しました'}</p>
+                <button onclick="retryLoadViewer()" class="tech-button">
+                    <i class="fas fa-sync-alt"></i>
+                    再試行
+                </button>
+            </div>
+        `;
     }
     
     /**
@@ -265,86 +344,72 @@ class OrbitalViewer {
      * 3Dビューアを初期化する
      */
     initialize() {
-        if (this.isInitialized) return;
+        if (this.isInitialized) {
+            console.log('すでに初期化されています');
+            return true;
+        }
+        
+        console.time('初期化');
         
         try {
-            // シーンの設定
+            // シーンを作成
             this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0x222222);
             
-            // カメラの設定
-            this.camera = new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
+            // カメラを作成（パースペクティブカメラ）
+            this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.1, 1000);
             this.camera.position.set(0, 0, 10);
-            this.options.initialCameraPosition = this.camera.position.clone();
             
-            // レンダラーの設定
-            this.renderer = new THREE.WebGLRenderer({ antialias: true });
+            // レンダラーを作成（WebGL）
+            this.renderer = new THREE.WebGLRenderer({ 
+                antialias: window.devicePixelRatio < 2,
+                alpha: false 
+            });
             this.renderer.setSize(this.width, this.height);
-            this.renderer.setPixelRatio(window.devicePixelRatio);
-            this.container.innerHTML = ''; // コンテナをクリア
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            
+            // コンテナにレンダラーを追加
+            this.container.innerHTML = '';
             this.container.appendChild(this.renderer.domElement);
             
-            // コントロールの設定
-            // THREE.OrbitControlsが利用可能か確認
-            if (typeof THREE.OrbitControls === 'undefined') {
-                console.error('THREE.OrbitControlsが読み込まれていません');
-                throw new Error('THREE.OrbitControlsが利用できません');
-            }
-            
-            this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-            this.controls.enableDamping = true;
-            this.controls.dampingFactor = 0.25;
-            
-            // 光源の設定
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            // 光源を追加
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             this.scene.add(ambientLight);
             
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            directionalLight.position.set(1, 1, 1);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 5, 5);
             this.scene.add(directionalLight);
             
-            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
-            directionalLight2.position.set(-1, -1, -1);
-            this.scene.add(directionalLight2);
+            // コントロールを設定（OrbitControls）
+            if (typeof THREE.OrbitControls !== 'undefined') {
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.1;
+            }
             
-            // 明るさ初期設定を適用
-            this.setBrightness(this.options.brightnessLevel);
+            // マウスとレイキャスターを初期化
+            this.mouse = new THREE.Vector2();
+            this.raycaster = new THREE.Raycaster();
             
-            // テーマ設定を適用
-            this.updateTheme(this.options.lightMode);
-            
-            // ウィンドウリサイズイベントの追加
+            // イベントリスナーを追加
             window.addEventListener('resize', this.onWindowResize.bind(this));
-            
-            // マウスイベントリスナーを追加
             this.renderer.domElement.addEventListener('mousemove', this.onMouseMove.bind(this));
-            this.renderer.domElement.addEventListener('click', this.onMouseClick.bind(this));
             
-            // テーマ変更の監視
-            const themeObserver = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.attributeName === 'data-theme') {
-                        const isLightMode = document.documentElement.getAttribute('data-theme') !== 'dark';
-                        this.updateTheme(isLightMode);
-                    }
-                });
-            });
-            
-            themeObserver.observe(document.documentElement, { attributes: true });
+            // アニメーションを開始
+            this.animate();
             
             this.isInitialized = true;
-            
-            // アニメーションの開始
-            this.animate();
-            console.log('3Dビューアの初期化が完了しました');
+            console.timeEnd('初期化');
+            return true;
         } catch (error) {
-            console.error('3Dビューア初期化エラー:', error);
+            console.error('初期化エラー:', error);
             this.container.innerHTML = `
-                <div style="color: var(--3d-text-color); text-align: center; padding: 20px; height: 100%; display: flex; flex-direction: column; justify-content: center; background-color: var(--3d-bg-color);">
-                    <p style="color: #ff6b6b; margin-bottom: 10px;">3Dビューアの初期化に失敗しました</p>
-                    <p>${error.message}</p>
+                <div class="tech-placeholder">
+                    <i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i>
+                    <p>3Dビューアの初期化に失敗しました: ${error.message}</p>
                 </div>
             `;
-            throw error;
+            return false;
         }
     }
     
@@ -418,8 +483,52 @@ class OrbitalViewer {
      * @param {Object} data - 軌道データ
      */
     showOrbitalInfo(data) {
-        // 軌道情報をツールチップとして表示する処理を実装
-        // 実際の実装では、HTML要素を配置または更新
+        if (!this.orbitalInfo) {
+            // 情報表示用の要素がない場合は作成
+            this.orbitalInfo = document.createElement('div');
+            this.orbitalInfo.className = 'orbital-tooltip';
+            this.orbitalInfo.style.position = 'absolute';
+            this.orbitalInfo.style.background = 'rgba(0, 0, 0, 0.8)';
+            this.orbitalInfo.style.color = 'white';
+            this.orbitalInfo.style.padding = '8px';
+            this.orbitalInfo.style.borderRadius = '4px';
+            this.orbitalInfo.style.fontSize = '12px';
+            this.orbitalInfo.style.pointerEvents = 'none';
+            this.orbitalInfo.style.zIndex = '1000';
+            this.orbitalInfo.style.display = 'none';
+            document.body.appendChild(this.orbitalInfo);
+        }
+        
+        // ツールチップの内容を設定
+        if (data.type === 'orbital') {
+            this.orbitalInfo.innerHTML = `
+                <strong>${data.orbital.name || '軌道'}</strong><br>
+                タイプ: ${data.orbital.type || 'N/A'}<br>
+                電子数: ${data.electrons || 0}/${data.orbital.maxElectrons || 0}
+            `;
+        } else if (data.type === 'electron') {
+            this.orbitalInfo.innerHTML = `
+                <strong>電子 #${data.index + 1}</strong><br>
+                軌道: ${data.orbitalName || 'N/A'}<br>
+                シェル: ${data.shellName || 'N/A'}
+            `;
+        }
+        
+        // マウス位置に表示
+        const updatePosition = (event) => {
+            const x = event.clientX + 10;
+            const y = event.clientY + 10;
+            this.orbitalInfo.style.left = `${x}px`;
+            this.orbitalInfo.style.top = `${y}px`;
+            this.orbitalInfo.style.display = 'block';
+        };
+        
+        // イベントリスナーを設定
+        this.renderer.domElement.addEventListener('mousemove', updatePosition);
+        this.renderer.domElement.addEventListener('mouseout', () => {
+            this.orbitalInfo.style.display = 'none';
+            this.renderer.domElement.removeEventListener('mousemove', updatePosition);
+        }, { once: true });
     }
     
     /**
@@ -514,43 +623,65 @@ class OrbitalViewer {
      * 電子のアニメーション処理
      */
     animateElectrons() {
-        // 電子をそれぞれの軌道に沿って動かす
-        const time = Date.now() * 0.001;
+        if (!this.electrons || this.electrons.length === 0) return;
         
-        this.electrons.forEach((electron, index) => {
-            if (electron.userData && electron.userData.orbit) {
-                const orbit = electron.userData.orbit;
-                const speed = (electron.userData.speed || 1) * this.options.electronSpeed;
-                const radius = orbit.radius || 1;
-                
-                // 以前の位置を保存
-                const prevPosition = electron.position.clone();
-                
-                // 基本的な円軌道（実際にはもっと複雑な動きにする）
-                const t = time * speed;
-                electron.position.x = radius * Math.cos(t);
-                electron.position.y = radius * Math.sin(t);
-                
-                // 軌道タイプに応じた動き
-                if (orbit.type === 'p') {
-                    // p軌道の場合は特定の軸に沿った動き
-                    const axis = orbit.axis || [0, 0, 1];
-                    electron.position.x = radius * Math.cos(t) * axis[0];
-                    electron.position.y = radius * Math.sin(t) * axis[1];
-                    electron.position.z = Math.sin(t * 1.5) * axis[2];
-                } else if (orbit.type === 'd' || orbit.type === 'f') {
-                    // dやf軌道の場合はより複雑な動き
-                    // ここではシンプルな例として
-                    electron.position.z = Math.sin(t * 1.2) * (radius * 0.5);
-                }
-                
-                // 電子の軌跡を更新
-                this.updateElectronTrail(index, prevPosition, electron.position);
+        // 時間係数 - パフォーマンスのために倍率を下げる
+        const time = Date.now() * 0.0005;
+        
+        // 各電子を更新（パフォーマンス最適化）
+        for (let i = 0; i < this.electrons.length; i++) {
+            const electron = this.electrons[i];
+            if (!electron || !electron.userData) continue;
+            
+            const data = electron.userData;
+            const speed = data.orbitSpeed * (this.options.electronSpeed || 1.0);
+            
+            // 角度の更新（単純化）
+            data.orbitAngle += speed;
+            if (data.orbitAngle > Math.PI * 2) {
+                data.orbitAngle -= Math.PI * 2;
             }
-        });
+            
+            // 軌道計算の簡略化
+            const radius = data.orbitRadius;
+            const angle = data.orbitAngle;
+            const phase = data.orbitPhase + time;
+            
+            // 軌道平面ごとに異なる動きを簡略化
+            let x, y, z;
+            const plane = data.orbitPlane % 3;
+            
+            // 計算を単純化（パフォーマンス向上）
+            if (plane === 0) {
+                x = Math.cos(angle) * radius;
+                y = Math.sin(angle) * radius;
+                z = Math.sin(phase) * (radius * 0.2);
+            } else if (plane === 1) {
+                x = Math.sin(phase) * (radius * 0.2);
+                y = Math.cos(angle) * radius;
+                z = Math.sin(angle) * radius;
+            } else {
+                x = Math.cos(angle) * radius;
+                y = Math.sin(phase) * (radius * 0.2);
+                z = Math.sin(angle) * radius;
+            }
+            
+            // 位置を更新
+            electron.position.set(x, y, z);
+            
+            // 軌跡更新の簡略化 - 細かすぎる更新はスキップ
+            if (i % 2 === 0 && this.options.showTrails !== false) {
+                const prevPosition = electron.userData.prevPosition || electron.position.clone();
+                this.updateElectronTrail(i, prevPosition, electron.position.clone());
+                electron.userData.prevPosition = electron.position.clone();
+            }
+        }
         
-        // 軌跡の不透明度を時間経過で減少させる
-        this.updateTrailOpacity();
+        // トレイルの透明度更新は2フレームに1回に制限
+        if (this.frameCount % 2 === 0) {
+            this.updateTrailOpacity();
+        }
+        this.frameCount = (this.frameCount || 0) + 1;
     }
     
     /**
@@ -560,95 +691,53 @@ class OrbitalViewer {
      * @param {THREE.Vector3} newPosition - 新しい位置
      */
     updateElectronTrail(electronIndex, prevPosition, newPosition) {
-        // トレイルポイントが存在しない場合は初期化
-        if (!this.trailPoints[electronIndex]) {
-            this.trailPoints[electronIndex] = [];
-        }
-        
         const trailPoints = this.trailPoints[electronIndex];
+        const trail = this.electronTrails[electronIndex];
         
-        // 新しい軌跡ポイントを追加
-        trailPoints.push({
-            position: newPosition.clone(),
-            time: Date.now(),
-            prevPosition: prevPosition.clone()
-        });
+        if (!trailPoints || !trail) return;
         
-        // 古いポイントを削除
-        while (trailPoints.length > this.options.trailLength) {
-            trailPoints.shift();
-        }
-        
-        // 軌跡の更新または作成
-        if (trailPoints.length >= 2) {
-            // 既存の軌跡が存在する場合は削除
-            if (this.electronTrails[electronIndex]) {
-                this.scene.remove(this.electronTrails[electronIndex]);
-                if (this.electronTrails[electronIndex].geometry) {
-                    this.electronTrails[electronIndex].geometry.dispose();
-                }
-                if (this.electronTrails[electronIndex].material) {
-                    this.electronTrails[electronIndex].material.dispose();
-                }
+        // 前回の位置と現在の位置の距離が一定以上なら新しい点を追加
+        const minDistance = 0.1;
+        const lastPoint = trailPoints.length > 0 ? trailPoints[trailPoints.length - 1] : null;
+        if (!lastPoint || lastPoint.distanceTo(newPosition) > minDistance) {
+            // 新しい点を追加
+            trailPoints.push(newPosition);
+            
+            // 最大点数を制限
+            const maxPoints = 20;
+            if (trailPoints.length > maxPoints) {
+                trailPoints.shift();
             }
             
-            // 軌跡の頂点を作成
-            const positions = [];
-            const colors = [];
-            const baseColor = this.options.lightMode ? new THREE.Color(0x0066cc) : new THREE.Color(0x00ffff);
-            
-            for (let i = 0; i < trailPoints.length - 1; i++) {
-                const point = trailPoints[i];
-                const timeDiff = (Date.now() - point.time) / 1000; // 秒に変換
-                const opacity = Math.max(0, 1 - (timeDiff / this.options.trailFadeTime));
-                
-                positions.push(point.position.x, point.position.y, point.position.z);
-                
-                // 時間に応じて色を変更（透明度が下がるほど暗くなる）
-                const color = baseColor.clone();
-                colors.push(color.r * opacity, color.g * opacity, color.b * opacity);
+            // 軌跡の形状を更新
+            const positions = new Float32Array(trailPoints.length * 3);
+            for (let i = 0; i < trailPoints.length; i++) {
+                positions[i * 3] = trailPoints[i].x;
+                positions[i * 3 + 1] = trailPoints[i].y;
+                positions[i * 3 + 2] = trailPoints[i].z;
             }
             
-            // 最後のポイントを追加
-            const lastPoint = trailPoints[trailPoints.length - 1];
-            positions.push(lastPoint.position.x, lastPoint.position.y, lastPoint.position.z);
-            colors.push(baseColor.r, baseColor.g, baseColor.b);
-            
-            // ジオメトリを作成
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            
-            // マテリアルを作成
-            const material = new THREE.LineBasicMaterial({
-                vertexColors: true,
-                transparent: true,
-                opacity: 0.7,
-                linewidth: 1
-            });
-            
-            // 軌跡を作成
-            const trail = new THREE.Line(geometry, material);
-            this.electronTrails[electronIndex] = trail;
-            this.scene.add(trail);
+            trail.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            trail.geometry.attributes.position.needsUpdate = true;
+            trail.geometry.computeBoundingSphere();
         }
     }
     
     /**
-     * 軌跡の不透明度を時間経過で更新
+     * 軌跡の透明度を更新
      */
     updateTrailOpacity() {
-        const currentTime = Date.now();
-        
-        this.trailPoints.forEach((trailPoints, electronIndex) => {
-            // 古いポイントを削除
-            while (
-                trailPoints.length > 0 && 
-                (currentTime - trailPoints[0].time) / 1000 > this.options.trailFadeTime
-            ) {
-                trailPoints.shift();
+        for (let i = 0; i < this.electronTrails.length; i++) {
+            const trail = this.electronTrails[i];
+            if (!trail) continue;
+            
+            // 時間経過で軌跡を少しずつ薄くする
+            trail.material.opacity *= 0.95;
+            // 最小透明度を設定
+            if (trail.material.opacity < 0.1) {
+                trail.material.opacity = 0.1;
             }
-        });
+        }
     }
     
     /**
@@ -683,35 +772,76 @@ class OrbitalViewer {
      * @param {Object} config - 電子配置データ
      */
     displayElement(element, config) {
+        if (!element || !config) {
+            console.error('displayElement: 要素またはコンフィグがnullです');
+            return;
+        }
+        
+        // 初期化されているか確認
         if (!this.isInitialized) {
+            console.log('ビューアが初期化されていません、初期化します');
             this.initialize();
         }
         
-        // 現在のビューをクリア
-        this.clear();
-        this.currentElement = element;
+        if (!this.scene) {
+            console.error('シーンが初期化されていません');
+            return;
+        }
         
-        // 原子核を作成
-        this.createNucleus(element);
+        console.time('元素表示');
         
-        // 電子殻を作成
-        this.createShells(config);
-        
-        // 軌道を作成
-        this.createOrbitals(config);
-        
-        // 電子を配置
-        this.placeElectrons(config);
-        
-        // 設定を反映
-        this.toggleShells();
-        this.toggleOrbitals();
-        
-        // カメラの位置をリセット
-        const distance = Math.max(10, element.number / 5);
-        this.camera.position.set(0, 0, distance);
-        this.options.initialCameraPosition = this.camera.position.clone();
-        this.controls.update();
+        try {
+            // 以前のデータをクリア
+            this.clear();
+            
+            // 現在の元素を保存
+            this.currentElement = element;
+            
+            // 原子核の作成
+            this.createNucleus(element);
+            
+            // 電子殻の作成（オプション）
+            if (this.options.showShells) {
+                this.createShells(config);
+            }
+            
+            // 軌道の作成
+            this.createOrbitals(config);
+            
+            // 電子の配置
+            this.placeElectrons(config);
+            
+            // カメラの位置をリセット
+            this.resetCamera();
+            
+            // 低詳細モードへの自動切替（重い元素の場合）
+            if (element.number > 36 && !this.options.lowDetailMode) {
+                console.log('重元素のため低詳細モードに切り替えます');
+                this.options.lowDetailMode = true;
+                this.options.trailLength = 10;
+            }
+            
+            // リサイズ処理を実行して表示を最適化
+            setTimeout(() => this.onWindowResize(), 100);
+            
+            console.timeEnd('元素表示');
+        } catch (error) {
+            console.error('元素表示エラー:', error);
+            
+            // エラーメッセージを表示
+            if (this.container) {
+                this.container.innerHTML = `
+                    <div class="tech-placeholder">
+                        <i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i>
+                        <p>軌道表示エラー: ${error.message}</p>
+                        <button onclick="retryLoadViewer()" class="tech-button">
+                            <i class="fas fa-sync-alt"></i>
+                            再試行
+                        </button>
+                    </div>
+                `;
+            }
+        }
     }
     
     /**
@@ -784,29 +914,87 @@ class OrbitalViewer {
      * @param {Object} config - 電子配置データ
      */
     createOrbitals(config) {
-        // 各軌道を作成
-        config.orbitals.forEach(orbitalConfig => {
-            const n = orbitalConfig.n;
-            const l = orbitalConfig.l;
+        if (!this.scene || !config) return;
+        
+        try {
+            // トレース開始
+            console.time('軌道生成');
             
-            // 軌道データを取得
-            const orbitalData = orbitalsData[l];
-            if (!orbitalData) return;
-            
-            // 軌道の基本半径（主量子数に比例）
-            const baseRadius = n * 1.5;
-            
-            // 軌道タイプに応じた作成メソッドを呼び出す
-            if (l === 's') {
-                this.createSOrbital(orbitalConfig, baseRadius, orbitalData);
-            } else if (l === 'p') {
-                this.createPOrbitals(orbitalConfig, baseRadius, orbitalData);
-            } else if (l === 'd') {
-                this.createDOrbitals(orbitalConfig, baseRadius, orbitalData);
-            } else if (l === 'f') {
-                this.createFOrbitals(orbitalConfig, baseRadius, orbitalData);
+            // 軌道を作成
+            for (let i = 0; i < config.orbitals.length; i++) {
+                const orbitalConfig = config.orbitals[i];
+                
+                // 軌道データの検証
+                if (!orbitalConfig || !orbitalConfig.n || !orbitalConfig.l) {
+                    console.warn('無効な軌道設定をスキップします:', orbitalConfig);
+                    continue;
+                }
+                
+                // 主量子数から基本半径を計算
+                const n = orbitalConfig.n;
+                const baseRadius = n * 0.8; // 半径を少し小さくして表示を改善
+                
+                // カラーマップから軌道の色を取得
+                const orbitalColor = this.getOrbitalColor(orbitalConfig.l);
+                
+                // 軌道データ
+                const orbitalData = {
+                    n: n,
+                    l: orbitalConfig.l,
+                    color: orbitalColor
+                };
+                
+                // 軌道タイプに応じた作成処理
+                switch (orbitalConfig.l) {
+                    case 's':
+                        this.createSOrbital(orbitalConfig, baseRadius, orbitalData);
+                        break;
+                    case 'p':
+                        // p軌道は簡略化（重いので）
+                        if (!this.options.lowDetailMode) {
+                            this.createPOrbitals(orbitalConfig, baseRadius, orbitalData);
+                        } else {
+                            // 低詳細モードではs軌道として近似
+                            this.createSOrbital(orbitalConfig, baseRadius, orbitalData);
+                        }
+                        break;
+                    case 'd':
+                        // 簡略化
+                        if (!this.options.lowDetailMode && config.atomicNumber < 30) {
+                            this.createDOrbitals(orbitalConfig, baseRadius, orbitalData);
+                        } else {
+                            this.createSOrbital(orbitalConfig, baseRadius, orbitalData);
+                        }
+                        break;
+                    case 'f':
+                        // f軌道は重いので常に簡略表示
+                        this.createSOrbital(orbitalConfig, baseRadius, orbitalData);
+                        break;
+                    default:
+                        console.warn(`未実装の軌道タイプ: ${orbitalConfig.l}`);
+                }
             }
-        });
+            
+            console.timeEnd('軌道生成');
+        } catch (error) {
+            console.error('軌道生成エラー:', error);
+        }
+    }
+    
+    /**
+     * 軌道の色を取得
+     * @param {string} type - 軌道タイプ
+     * @returns {number} 色コード
+     */
+    getOrbitalColor(type) {
+        const colors = {
+            's': 0xff5252, // 赤
+            'p': 0x4caf50, // 緑
+            'd': 0x2196f3, // 青
+            'f': 0xff9800  // オレンジ
+        };
+        
+        return colors[type] || 0xffffff;
     }
     
     /**
@@ -816,31 +1004,42 @@ class OrbitalViewer {
      * @param {Object} orbitalData - 軌道データ
      */
     createSOrbital(orbitalConfig, baseRadius, orbitalData) {
-        // s軌道は球面
-        const geometry = new THREE.SphereGeometry(baseRadius * 0.6, 32, 32);
+        // 低詳細モードの場合はジオメトリの複雑さを減らす
+        const segments = this.options.lowDetailMode ? 16 : 32;
         
-        // テーマに応じて色と透明度を設定
-        const orbitalColor = this.options.lightMode ? 0x6699cc : 0x66ccff;
-        const orbitalOpacity = this.options.lightMode ? 0.15 : 0.3;
+        const geometry = new THREE.SphereGeometry(baseRadius * 0.8, segments, segments);
         
-        const material = new THREE.MeshBasicMaterial({
+        // 軌道のカラーを設定（デフォルトカラーを追加）
+        const orbitalColor = orbitalData.color || 0xff5252;
+        
+        const material = new THREE.MeshPhongMaterial({
             color: orbitalColor,
             transparent: true,
-            opacity: orbitalOpacity,
-            depthWrite: false
+            opacity: 0.3,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            wireframe: false,
+            emissive: orbitalColor,
+            emissiveIntensity: 0.1
         });
         
         const orbital = new THREE.Mesh(geometry, material);
+        
+        // データを保存
         orbital.userData = {
-            type: 's',
+            type: 'orbital',
+            orbital: orbitalData,
             n: orbitalConfig.n,
-            l: orbitalConfig.l,
+            l: 's',
             electrons: orbitalConfig.electrons,
+            radius: baseRadius,
             maxElectrons: 2
         };
         
-        this.orbitals.push(orbital);
         this.scene.add(orbital);
+        this.orbitals.push(orbital);
+        
+        return orbital;
     }
     
     /**
@@ -850,44 +1049,45 @@ class OrbitalViewer {
      * @param {Object} orbitalData - 軌道データ
      */
     createPOrbitals(orbitalConfig, baseRadius, orbitalData) {
-        // p軌道はダンベル形状を3方向に
-        const pOrbitals = orbitalData.orbitals;
+        const n = orbitalConfig.n;
+        const electrons = orbitalConfig.electrons || 0;
         
-        // テーマに応じて色と透明度を設定
-        const orbitalColor = this.options.lightMode ? 0x66cc66 : 0x00ff00;
-        const orbitalOpacity = this.options.lightMode ? 0.15 : 0.3;
+        // p軌道は3つの方向に存在
+        const axes = ['x', 'y', 'z'];
+        const colors = [0xff5555, 0x55ff55, 0x5555ff];
         
-        // 各p軌道（px, py, pz）を作成
-        for (let i = 0; i < Math.min(pOrbitals.length, 3); i++) {
-            const pOrbital = pOrbitals[i];
-            // 軌道の方向
-            const direction = pOrbital.direction;
+        // 各p軌道を作成
+        for (let i = 0; i < 3; i++) {
+            const axis = axes[i];
             
-            // 簡略化したp軌道の表現
-            // 実際の複雑な形状の代わりに楕円体を使用
-            const geometry = new THREE.SphereGeometry(baseRadius * 0.7, 32, 16);
-            geometry.scale(
-                Math.abs(direction[0]) * 1.5 + 0.5,
-                Math.abs(direction[1]) * 1.5 + 0.5,
-                Math.abs(direction[2]) * 1.5 + 0.5
-            );
+            // ダンベル形状
+            const length = baseRadius * 1.5;
+            const radius = baseRadius * 0.5;
+            
+            // 単純な楕円体で表現
+            const geometry = new THREE.SphereGeometry(radius, 32, 16);
+            geometry.scale(axis === 'x' ? length / radius : 1, 
+                          axis === 'y' ? length / radius : 1, 
+                          axis === 'z' ? length / radius : 1);
             
             const material = new THREE.MeshBasicMaterial({
-                color: orbitalColor,
+                color: colors[i],
                 transparent: true,
-                opacity: orbitalOpacity,
-                depthWrite: false
+                opacity: 0.2,
+                wireframe: false
             });
             
             const orbital = new THREE.Mesh(geometry, material);
             orbital.userData = {
-                type: 'p',
-                subtype: pOrbital.name,
-                n: orbitalConfig.n,
-                l: orbitalConfig.l,
-                direction: direction,
-                electrons: Math.min(orbitalConfig.electrons - i * 2, 2),
-                maxElectrons: 2
+                type: 'orbital',
+                orbital: {
+                    ...orbitalData,
+                    name: `${n}p${axis}軌道`
+                },
+                n: n,
+                l: 'p',
+                m: i - 1,
+                electrons: Math.min(electrons - i * 2, 2)
             };
             
             this.orbitals.push(orbital);
@@ -896,170 +1096,135 @@ class OrbitalViewer {
     }
     
     /**
-     * d軌道を作成（簡略化版）
+     * d軌道を作成（単純化）
      * @param {Object} orbitalConfig - 軌道設定
      * @param {number} baseRadius - 基本半径
      * @param {Object} orbitalData - 軌道データ
      */
     createDOrbitals(orbitalConfig, baseRadius, orbitalData) {
-        // d軌道は5種類あり、複雑な形状
-        // 簡略化のため、特徴的な形状を球の組み合わせで表現
-        let remainingElectrons = orbitalConfig.electrons;
+        const n = orbitalConfig.n;
+        const electrons = orbitalConfig.electrons || 0;
         
-        orbitalData.orbitals.forEach((dOrbital, i) => {
-            if (remainingElectrons <= 0) return;
+        // d軌道を単純化した形状で5つ作成
+        const colors = [0xff9966, 0xffcc66, 0xffff66, 0x66ffcc, 0x66ccff];
+        
+        for (let i = 0; i < 5; i++) {
+            // 簡易形状としてトーラスを使用
+            const radius = baseRadius * 0.7;
+            const tubeRadius = baseRadius * 0.2;
+            const geometry = new THREE.TorusGeometry(radius, tubeRadius, 16, 40);
             
-            // このd軌道サブタイプに割り当てる電子（最大2）
-            const electronCount = Math.min(remainingElectrons, 2);
-            remainingElectrons -= electronCount;
-            
-            // d軌道の表現（ここでは簡略化）
-            // 実際にはもっと複雑な形状モデルが必要
-            const geometry = new THREE.SphereGeometry(baseRadius * 0.25, 32, 16);
-            const material = new THREE.MeshBasicMaterial({
-                color: dOrbital.color,
-                transparent: true,
-                opacity: 0.3 + (electronCount * 0.1)
-            });
-            
-            const orbital = new THREE.Group();
-            
-            // サブタイプに応じた形状を作成
-            if (dOrbital.subtype === 'dxy') {
-                // xy平面に4つの球を配置
-                for (let j = 0; j < 4; j++) {
-                    const angle = (j * Math.PI / 2);
-                    const x = Math.cos(angle) * baseRadius * 0.6;
-                    const y = Math.sin(angle) * baseRadius * 0.6;
-                    const lobe = new THREE.Mesh(geometry, material);
-                    lobe.position.set(x, y, 0);
-                    orbital.add(lobe);
-                }
-            } else if (dOrbital.subtype === 'dyz') {
-                // yz平面に4つの球を配置
-                for (let j = 0; j < 4; j++) {
-                    const angle = (j * Math.PI / 2);
-                    const y = Math.cos(angle) * baseRadius * 0.6;
-                    const z = Math.sin(angle) * baseRadius * 0.6;
-                    const lobe = new THREE.Mesh(geometry, material);
-                    lobe.position.set(0, y, z);
-                    orbital.add(lobe);
-                }
-            } else if (dOrbital.subtype === 'dxz') {
-                // xz平面に4つの球を配置
-                for (let j = 0; j < 4; j++) {
-                    const angle = (j * Math.PI / 2);
-                    const x = Math.cos(angle) * baseRadius * 0.6;
-                    const z = Math.sin(angle) * baseRadius * 0.6;
-                    const lobe = new THREE.Mesh(geometry, material);
-                    lobe.position.set(x, 0, z);
-                    orbital.add(lobe);
-                }
-            } else if (dOrbital.subtype === 'dx2-y2') {
-                // x²-y²軌道の表現
-                for (let j = 0; j < 4; j++) {
-                    const angle = (j * Math.PI / 2) + (Math.PI / 4);
-                    const x = Math.cos(angle) * baseRadius * 0.6;
-                    const y = Math.sin(angle) * baseRadius * 0.6;
-                    const lobe = new THREE.Mesh(geometry, material);
-                    lobe.position.set(x, y, 0);
-                    orbital.add(lobe);
-                }
-            } else if (dOrbital.subtype === 'dz2') {
-                // z²軌道の表現
-                // z軸方向に2つの球とxy平面にリング状の構造
-                const lobeTop = new THREE.Mesh(geometry, material);
-                lobeTop.position.set(0, 0, baseRadius * 0.6);
-                orbital.add(lobeTop);
-                
-                const lobeBottom = new THREE.Mesh(geometry, material);
-                lobeBottom.position.set(0, 0, -baseRadius * 0.6);
-                orbital.add(lobeBottom);
-                
-                // 中央のリング部分を表現
-                const ringGeometry = new THREE.TorusGeometry(baseRadius * 0.4, baseRadius * 0.1, 16, 32);
-                const ringMaterial = new THREE.MeshBasicMaterial({
-                    color: dOrbital.color,
-                    transparent: true,
-                    opacity: 0.2
-                });
-                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-                ring.rotation.x = Math.PI / 2;
-                orbital.add(ring);
+            // 各d軌道を異なる向きに
+            if (i === 0) {
+                geometry.rotateX(Math.PI / 2);
+            } else if (i === 1) {
+                geometry.rotateY(Math.PI / 2);
+            } else if (i === 2) {
+                geometry.rotateZ(Math.PI / 2);
+                geometry.rotateY(Math.PI / 4);
+            } else if (i === 3) {
+                geometry.rotateZ(Math.PI / 4);
+                geometry.rotateX(Math.PI / 4);
+            } else {
+                geometry.rotateY(Math.PI / 4);
+                geometry.rotateX(Math.PI / 4);
             }
             
+            const material = new THREE.MeshBasicMaterial({
+                color: colors[i],
+                transparent: true,
+                opacity: 0.2,
+                wireframe: false
+            });
+            
+            const orbital = new THREE.Mesh(geometry, material);
             orbital.userData = {
                 type: 'orbital',
-                orbital: dOrbital,
-                orbitalConfig: orbitalConfig,
-                subtype: dOrbital.subtype,
-                electrons: electronCount
+                orbital: {
+                    ...orbitalData,
+                    name: `${n}d${i}軌道`
+                },
+                n: n,
+                l: 'd',
+                m: i - 2,
+                electrons: Math.min(electrons - i * 2, 2)
             };
             
             this.orbitals.push(orbital);
             this.scene.add(orbital);
-        });
+        }
     }
     
     /**
-     * f軌道を作成（非常に簡略化）
-     * @param {Object} orbitalConfig - 軌道設定
-     * @param {number} baseRadius - 基本半径
-     * @param {Object} orbitalData - 軌道データ
+     * 電子を作成
+     * @param {Object} orbital - 電子の属する軌道
+     * @param {number} index - 軌道内の電子インデックス
+     * @returns {Object} 電子オブジェクト
      */
-    createFOrbitals(orbitalConfig, baseRadius, orbitalData) {
-        // f軌道は7種類あり、非常に複雑な形状
-        // 教育目的の簡略化として、特徴的なポイントを球の集合で表現
-        let remainingElectrons = orbitalConfig.electrons;
+    createElectron(orbital, index) {
+        // 重要なエラーチェック
+        if (!this.scene || !orbital || !orbital.userData) {
+            console.error('電子を作成できません: 必要なデータがありません');
+            return null;
+        }
         
-        orbitalData.orbitals.forEach((fOrbital, i) => {
-            if (remainingElectrons <= 0) return;
+        const userData = orbital.userData;
+        
+        try {
+            // 電子のサイズとセグメントを縮小して最適化
+            const electronSize = 0.08;
+            const electronSegments = 8;
             
-            // このf軌道サブタイプに割り当てる電子（最大2）
-            const electronCount = Math.min(remainingElectrons, 2);
-            remainingElectrons -= electronCount;
-            
-            // f軌道の表現（非常に簡略化）
-            const geometry = new THREE.SphereGeometry(baseRadius * 0.2, 32, 16);
-            const material = new THREE.MeshBasicMaterial({
-                color: fOrbital.color,
-                transparent: true,
-                opacity: 0.3 + (electronCount * 0.1)
+            // 電子のジオメトリとマテリアル
+            const geometry = new THREE.SphereGeometry(electronSize, electronSegments, electronSegments);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0xffff00,
+                emissive: 0xffff00,
+                emissiveIntensity: 0.5
             });
             
-            const orbital = new THREE.Group();
+            // 電子の軌道データを取得
+            const n = userData.n || 1;
+            const radius = userData.radius || (n * 1.2); // 半径を少し小さく
+            const type = userData.l || 's';
             
-            // 各サブタイプに対して、特徴的なポイントを複数の球で表現
-            // ここでは簡略化のため、基本的なパターンのみ
-            for (let j = 0; j < 8; j++) {
-                const phi = (j % 4) * (Math.PI / 2);
-                const theta = (j < 4) ? 0 : Math.PI / 2;
-                
-                const x = baseRadius * 0.7 * Math.sin(theta) * Math.cos(phi);
-                const y = baseRadius * 0.7 * Math.sin(theta) * Math.sin(phi);
-                const z = baseRadius * 0.7 * Math.cos(theta);
-                
-                const lobe = new THREE.Mesh(geometry, material);
-                lobe.position.set(x, y, z);
-                orbital.add(lobe);
+            // 軌道に合わせた電子の初期配置
+            const angle = (Math.random() * Math.PI * 2) + (index * Math.PI / 2);
+            let x = Math.cos(angle) * radius;
+            let y = Math.sin(angle) * radius;
+            let z = 0;
+            
+            // p, d, f軌道の場合は3D空間に分散
+            if (type === 'p' || type === 'd' || type === 'f') {
+                z = (Math.random() - 0.5) * radius;
             }
             
-            orbital.userData = {
-                type: 'orbital',
-                orbital: fOrbital,
-                orbitalConfig: orbitalConfig,
-                subtype: fOrbital.subtype,
-                electrons: electronCount
+            // 電子を作成して位置を設定
+            const electron = new THREE.Mesh(geometry, material);
+            electron.position.set(x, y, z);
+            
+            // 電子のデータを設定
+            electron.userData = {
+                type: 'electron',
+                n: n,
+                l: type,
+                orbitalIndex: index,
+                orbitalName: `${n}${type}`,
+                shellName: `殻 ${n}`,
+                orbitRadius: radius,
+                orbitSpeed: 0.6 / n, // 単純化
+                orbitAngle: angle,
+                orbitPhase: index * (Math.PI / 4),
+                orbitPlane: index % 3
             };
             
-            // サブタイプごとに回転を調整して変化をつける
-            orbital.rotation.x = (i % 3) * (Math.PI / 4);
-            orbital.rotation.y = (i % 2) * (Math.PI / 2);
-            orbital.rotation.z = (i % 4) * (Math.PI / 3);
-            
-            this.orbitals.push(orbital);
-            this.scene.add(orbital);
-        });
+            // シーンに追加
+            this.scene.add(electron);
+            return electron;
+        } catch (error) {
+            console.error('電子作成エラー:', error);
+            return null;
+        }
     }
     
     /**
@@ -1067,137 +1232,155 @@ class OrbitalViewer {
      * @param {Object} config - 電子配置データ
      */
     placeElectrons(config) {
-        // 電子を各軌道に配置
-        let electronIndex = 0;
+        if (!this.scene) return;
         
-        config.orbitals.forEach(orbitalConfig => {
-            const n = orbitalConfig.n;
-            const l = orbitalConfig.l;
-            const electronCount = orbitalConfig.electrons;
+        let electronCount = 0;
+        
+        // 最適化のため、最大表示電子数を制限
+        const maxElectrons = this.options.lowDetailMode ? 20 : 50;
+        
+        // 各軌道に電子を配置
+        for (let i = 0; i < this.orbitals.length; i++) {
+            const orbital = this.orbitals[i];
+            const userData = orbital.userData;
             
-            // 軌道データを取得
-            const orbitalData = orbitalsData[l];
-            if (!orbitalData) return;
+            if (!userData) continue;
             
-            // 軌道の基本半径（主量子数に比例）
-            const baseRadius = n * 1.5;
+            // この軌道の電子数
+            const orbitalElectrons = userData.electrons;
             
-            // この軌道タイプの電子を配置
-            for (let i = 0; i < electronCount; i++) {
-                // 電子の表現
-                const geometry = new THREE.SphereGeometry(0.15, 16, 16);
-                
-                // テーマに応じて電子の色を調整
-                const electronColor = this.options.lightMode ? 0x0066cc : 0x00ffff;
-                const material = new THREE.MeshBasicMaterial({ color: electronColor });
-                
-                const electron = new THREE.Mesh(geometry, material);
-                
-                // 軌道パスの計算（簡略化）
-                let orbit;
-                if (l === 's') {
-                    // s軌道は球面上をランダムに動く
-                    orbit = {
-                        type: 's',
-                        radius: baseRadius,
-                        centerX: 0,
-                        centerY: 0,
-                        centerZ: 0
-                    };
-                    
-                    // 初期位置は球面上のランダムな点
-                    const phi = Math.random() * Math.PI * 2;
-                    const theta = Math.random() * Math.PI;
-                    electron.position.x = baseRadius * Math.sin(theta) * Math.cos(phi);
-                    electron.position.y = baseRadius * Math.sin(theta) * Math.sin(phi);
-                    electron.position.z = baseRadius * Math.cos(theta);
-                    
-                } else if (l === 'p') {
-                    // p軌道は3方向、各電子は特定の方向に
-                    const pIndex = Math.min(Math.floor(i / 2), 2);
-                    const pOrbital = orbitalData.orbitals[pIndex];
-                    const direction = pOrbital.direction;
-                    
-                    orbit = {
-                        type: 'p',
-                        radius: baseRadius * 0.7,
-                        axis: direction,
-                        orbital: pOrbital
-                    };
-                    
-                    // 初期位置は軌道方向に沿った点
-                    const scale = 0.8;
-                    electron.position.x = direction[0] * baseRadius * scale;
-                    electron.position.y = direction[1] * baseRadius * scale;
-                    electron.position.z = direction[2] * baseRadius * scale;
-                    
-                } else if (l === 'd' || l === 'f') {
-                    // d, f軌道はより複雑、簡略化した表現
-                    const subIndex = Math.min(Math.floor(i / 2), orbitalData.orbitals.length - 1);
-                    const subOrbital = orbitalData.orbitals[subIndex];
-                    
-                    orbit = {
-                        type: l,
-                        radius: baseRadius * 0.6,
-                        orbital: subOrbital
-                    };
-                    
-                    // 初期位置はサブ軌道に基づく
-                    const angle = Math.random() * Math.PI * 2;
-                    electron.position.x = baseRadius * 0.6 * Math.cos(angle);
-                    electron.position.y = baseRadius * 0.6 * Math.sin(angle);
-                    electron.position.z = (Math.random() - 0.5) * baseRadius * 0.3;
+            // 最大電子数を超える場合はスキップ
+            if (electronCount >= maxElectrons) {
+                break;
+            }
+            
+            // この軌道の電子を配置
+            for (let j = 0; j < Math.min(orbitalElectrons, userData.maxElectrons); j++) {
+                // 最大電子数を超える場合はスキップ
+                if (electronCount >= maxElectrons) {
+                    break;
                 }
                 
-                // 各電子に異なる速度を与える
-                const speed = 0.5 + Math.random() * 0.5;
-                
-                // 電子メタデータの設定
-                electron.userData = {
-                    type: 'electron',
-                    index: electronIndex++,
-                    orbital: orbitalConfig,
-                    orbit: orbit,
-                    speed: speed,
-                    shellName: `${n}${l}`,
-                    orbitalName: `${n}${l}`
-                };
-                
-                this.electrons.push(electron);
-                this.scene.add(electron);
+                // 電子を作成
+                const electron = this.createElectron(orbital, j);
+                if (electron) {
+                    this.electrons.push(electron);
+                    
+                    // 軌跡の初期化
+                    this.initializeElectronTrail(this.electrons.length - 1);
+                    
+                    electronCount++;
+                }
             }
-        });
+        }
+        
+        console.log(`配置された電子数: ${electronCount}`);
     }
     
     /**
-     * ビューアの破棄
+     * 電子の軌跡を初期化
+     * @param {number} electronIndex - 電子のインデックス
+     */
+    initializeElectronTrail(electronIndex) {
+        // 軌跡の点を記録する配列
+        this.trailPoints[electronIndex] = [];
+        
+        // 軌跡の線を作成
+        const trailMaterial = new THREE.LineBasicMaterial({
+            color: 0xffff88,
+            transparent: true,
+            opacity: 0.5,
+            linewidth: 1
+        });
+        
+        const trailGeometry = new THREE.BufferGeometry();
+        const trail = new THREE.Line(trailGeometry, trailMaterial);
+        
+        this.electronTrails[electronIndex] = trail;
+        this.scene.add(trail);
+    }
+    
+    /**
+     * リソースを解放
      */
     dispose() {
-        // アニメーションの停止
+        // アニメーションループを停止
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
         
-        // シーンのクリア
+        // すべてのオブジェクトを削除
         this.clear();
         
-        // イベントリスナーの削除
-        window.removeEventListener('resize', this.onWindowResize);
-        if (this.renderer && this.renderer.domElement) {
-            this.renderer.domElement.removeEventListener('mousemove', this.onMouseMove);
-            this.renderer.domElement.removeEventListener('click', this.onMouseClick);
-            
-            // レンダラーの削除
-            this.container.removeChild(this.renderer.domElement);
+        // レンダラーの解放
+        if (this.renderer) {
             this.renderer.dispose();
+            this.renderer.forceContextLoss();
+            this.renderer.domElement = null;
         }
         
-        // コントロールの破棄
+        // コントロールの解放
         if (this.controls) {
             this.controls.dispose();
+            this.controls = null;
         }
         
-        this.isInitialized = false;
+        // シーンのメモリ解放
+        if (this.scene) {
+            this.scene.traverse((object) => {
+                // ジオメトリの解放
+                if (object.geometry) {
+                    object.geometry.dispose();
+                }
+                
+                // マテリアルの解放
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(material => {
+                            disposeMaterial(material);
+                        });
+                    } else {
+                        disposeMaterial(object.material);
+                    }
+                }
+            });
+            
+            this.scene = null;
+        }
+        
+        // カメラの参照を解除
+        this.camera = null;
+        
+        // その他のメンバ変数をクリア
+        this.nucleus = null;
+        this.shells = [];
+        this.orbitals = [];
+        this.electrons = [];
+        this.electronTrails = [];
+        this.trailPoints = [];
+        this.currentElement = null;
+        
+        // コンテナをクリア
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+        
+        // マテリアル解放ヘルパー関数
+        function disposeMaterial(material) {
+            if (!material) return;
+            
+            // テクスチャの解放
+            for (const key in material) {
+                if (material[key] && material[key].isTexture) {
+                    material[key].dispose();
+                }
+            }
+            
+            // マテリアル自体の解放
+            material.dispose();
+        }
+        
+        console.log('OrbitalViewer: リソースを解放しました');
     }
 }
