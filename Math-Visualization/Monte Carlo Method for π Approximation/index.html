@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monte Carlo Method for π Approximation</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    .description {
+      margin-bottom: 20px;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 200px;
+    }
+    label {
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    button {
+      padding: 8px 15px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      width: 100%;
+      margin-top: 20px;
+      gap: 15px;
+    }
+    .stat-box {
+      background-color: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      min-width: 200px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .stat-label {
+      font-size: 14px;
+      color: #7f8c8d;
+    }
+    canvas {
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Monte Carlo Method for π Approximation</h1>
+    <div class="description">
+      <p>This visualization demonstrates how the Monte Carlo method can be used to approximate the value of π.
+      Random points are placed inside a square, and we count how many fall inside a quarter circle.
+      The ratio of points inside the circle to total points, multiplied by 4, approximates π.</p>
+    </div>
+    
+    <div class="controls">
+      <div class="control-group">
+        <label for="pointsPerFrame">Points Per Frame:</label>
+        <input type="range" id="pointsPerFrame" min="1" max="1000" value="10" step="1">
+        <span id="pointsPerFrameValue">10</span>
+      </div>
+      
+      <div class="control-group">
+        <label for="pointSize">Point Size:</label>
+        <input type="range" id="pointSize" min="1" max="5" value="2" step="0.5">
+        <span id="pointSizeValue">2</span>
+      </div>
+      
+      <div class="control-group">
+        <button id="resetBtn">Reset</button>
+      </div>
+      
+      <div class="control-group">
+        <label for="showGraph">Show Graph:</label>
+        <input type="checkbox" id="showGraph" checked>
+      </div>
+    </div>
+    
+    <div id="canvasContainer"></div>
+    
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-value" id="piValue">0.0000</div>
+        <div class="stat-label">Approximated π</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="totalPoints">0</div>
+        <div class="stat-label">Total Points</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="circlePoints">0</div>
+        <div class="stat-label">Points Inside Circle</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="error">0.0000</div>
+        <div class="stat-label">Error (%)</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function sketch(p) {
+      // Configuration
+      let size = 400;
+      let radius = size / 2;
+      let pointsPerFrame = 10;
+      let pointSize = 2;
+      let showGraph = true;
+      let graphHistory = [];
+      let maxHistoryLength = 100;
+      
+      // Stats
+      let totalPoints = 0;
+      let circlePoints = 0;
+      let piApproximation = 0;
+      
+      // UI Elements
+      let pointsPerFrameSlider;
+      let pointsPerFrameValue;
+      let pointSizeSlider;
+      let pointSizeValue;
+      let resetBtn;
+      let showGraphCheckbox;
+      let piValueElement;
+      let totalPointsElement;
+      let circlePointsElement;
+      let errorElement;
+      
+      p.setup = function() {
+        p.createCanvas(size, showGraph ? size + 150 : size);
+        p.background(255);
+        
+        // Draw initial square and quarter circle
+        drawSquareAndCircle();
+        
+        // Get UI elements
+        pointsPerFrameSlider = document.getElementById('pointsPerFrame');
+        pointsPerFrameValue = document.getElementById('pointsPerFrameValue');
+        pointSizeSlider = document.getElementById('pointSize');
+        pointSizeValue = document.getElementById('pointSizeValue');
+        resetBtn = document.getElementById('resetBtn');
+        showGraphCheckbox = document.getElementById('showGraph');
+        piValueElement = document.getElementById('piValue');
+        totalPointsElement = document.getElementById('totalPoints');
+        circlePointsElement = document.getElementById('circlePoints');
+        errorElement = document.getElementById('error');
+        
+        // Add event listeners
+        pointsPerFrameSlider.addEventListener('input', function() {
+          pointsPerFrame = parseInt(this.value);
+          pointsPerFrameValue.textContent = pointsPerFrame;
+        });
+        
+        pointSizeSlider.addEventListener('input', function() {
+          pointSize = parseFloat(this.value);
+          pointSizeValue.textContent = pointSize;
+        });
+        
+        resetBtn.addEventListener('click', resetSimulation);
+        
+        showGraphCheckbox.addEventListener('change', function() {
+          showGraph = this.checked;
+          p.resizeCanvas(size, showGraph ? size + 150 : size);
+          drawSquareAndCircle();
+          if (showGraph) {
+            drawGraph();
+          }
+        });
+      };
+      
+      p.draw = function() {
+        // Add new points
+        for (let i = 0; i < pointsPerFrame; i++) {
+          addPoint();
+        }
+        
+        // Update stats
+        updateStats();
+        
+        // Draw graph if enabled
+        if (showGraph) {
+          drawGraph();
+        }
+      };
+      
+      function drawSquareAndCircle() {
+        p.background(255);
+        
+        // Draw square
+        p.stroke(0);
+        p.strokeWeight(2);
+        p.noFill();
+        p.rect(0, 0, size, size);
+        
+        // Draw quarter circle
+        p.stroke(0);
+        p.strokeWeight(2);
+        p.noFill();
+        p.arc(0, 0, size * 2, size * 2, 0, p.HALF_PI);
+      }
+      
+      function addPoint() {
+        let x = p.random(size);
+        let y = p.random(size);
+        
+        totalPoints++;
+        
+        // Check if point is inside quarter circle
+        let distance = p.sqrt(x * x + y * y);
+        let isInsideCircle = distance <= size;
+        
+        if (isInsideCircle) {
+          circlePoints++;
+          p.fill(0, 0, 255, 150);
+        } else {
+          p.fill(255, 0, 0, 150);
+        }
+        
+        p.noStroke();
+        p.ellipse(x, y, pointSize, pointSize);
+        
+        // Calculate π approximation
+        piApproximation = 4 * (circlePoints / totalPoints);
+        
+        // Add to history (for graph)
+        if (graphHistory.length >= maxHistoryLength) {
+          graphHistory.shift();
+        }
+        graphHistory.push(piApproximation);
+      }
+      
+      function drawGraph() {
+        // Clear graph area
+        p.fill(240);
+        p.noStroke();
+        p.rect(0, size, size, 150);
+        
+        // Draw graph axes
+        p.stroke(0);
+        p.strokeWeight(1);
+        p.line(0, size + 75, size, size + 75); // x-axis (π = 3.14159...)
+        
+        // Draw reference line for actual π
+        p.stroke(0, 150, 0);
+        p.strokeWeight(1);
+        p.line(0, size + 75 - (p.PI - 3) * 50, size, size + 75 - (p.PI - 3) * 50);
+        
+        // Draw π approximation text
+        p.noStroke();
+        p.fill(0);
+        p.textSize(12);
+        p.text("π ≈ 3.14159...", 10, size + 75 - (p.PI - 3) * 50 - 5);
+        
+        // Draw graph lines
+        p.stroke(0, 0, 255);
+        p.strokeWeight(2);
+        p.noFill();
+        p.beginShape();
+        
+        for (let i = 0; i < graphHistory.length; i++) {
+          // Scale x-coordinate based on the number of points in history
+          let x = p.map(i, 0, graphHistory.length - 1, 0, size);
+          // Scale y-coordinate to show π value centered around 3.0-3.3
+          let y = size + 75 - (graphHistory[i] - 3) * 50;
+          p.vertex(x, y);
+        }
+        
+        p.endShape();
+        
+        // Draw axes labels
+        p.noStroke();
+        p.fill(0);
+        p.textSize(14);
+        p.textAlign(p.CENTER);
+        p.text("Approximation Over Time", size / 2, size + 140);
+        
+        // Y-axis values
+        p.textAlign(p.RIGHT);
+        p.textSize(12);
+        p.text("3.0", 30, size + 75 + 15);
+        p.text("3.5", 30, size + 75 - 25);
+      }
+      
+      function updateStats() {
+        piValueElement.textContent = piApproximation.toFixed(6);
+        totalPointsElement.textContent = totalPoints.toLocaleString();
+        circlePointsElement.textContent = circlePoints.toLocaleString();
+        
+        // Calculate error percentage
+        let error = Math.abs((piApproximation - p.PI) / p.PI * 100);
+        errorElement.textContent = error.toFixed(4) + '%';
+      }
+      
+      function resetSimulation() {
+        totalPoints = 0;
+        circlePoints = 0;
+        piApproximation = 0;
+        graphHistory = [];
+        
+        drawSquareAndCircle();
+        updateStats();
+      }
+    }
+    
+    new p5(sketch, 'canvasContainer');
+  </script>
+</body>
+</html>
